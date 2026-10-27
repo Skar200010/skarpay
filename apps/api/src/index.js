@@ -1,0 +1,40 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { initSupabase, getAdmin } from '../../../packages/db/src/supabase.js';
+import merchantRoutes from './routes/merchants.routes.js';
+import paymentRoutes from './routes/payments.routes.js';
+import checkoutRoutes from './routes/checkout.routes.js';
+
+initSupabase({
+  url: process.env.SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  anonKey: process.env.SUPABASE_ANON_KEY,
+});
+
+const app = express();
+const PORT = process.env.API_PORT || 4100;
+
+app.use(helmet());
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json());
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'skarpay-api', supabase: !!getAdmin(), ts: new Date().toISOString() });
+});
+
+app.use('/api/v1/merchants', merchantRoutes);
+app.use('/api/v1/payments', paymentRoutes);
+app.use('/api/v1/checkout', checkoutRoutes);
+
+app.use((err, req, res, next) => {
+  console.error('[api] error:', err);
+  res.status(500).json({ error: err.message || 'internal error' });
+});
+
+app.listen(PORT, () => {
+  console.log(`[skarpay-api] listening on :${PORT}`);
+});
+
+export default app;

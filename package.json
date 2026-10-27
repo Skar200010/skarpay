@@ -1,0 +1,24 @@
+{
+  "name": "skarpay",
+  "version": "1.0.0",
+  "description": "Self-hosted sovereign UPI payment gateway (React + Node + Supabase)",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:api": "node apps/api/src/index.js",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -b --noEmit",
+    "test": "node scripts/test-all.js",
+    "db:migrate": "node scripts/migrate.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "author": "SkarPay",
+  "license": "Commercial"
+}

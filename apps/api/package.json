@@ -1,0 +1,21 @@
+{
+  "name": "@skarpay/api",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "helmet": "^8.0.0",
+    "dotenv": "^16.4.5",
+    "uuid": "^10.0.0",
+    "qrcode": "^1.5.4",
+    "baileys": "^6.7.0",
+    "node-cron": "^3.0.3"
+  }
+}
