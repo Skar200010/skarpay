@@ -1,4 +1,4 @@
-import { requireAdmin } from '../../../packages/db/src/supabase.js';
+import { requireAdmin } from '../../../../packages/db/src/supabase.js';
 
 // Background sweeper: expire timed-out sessions, promote queued customers.
 export function startSweeper() {
