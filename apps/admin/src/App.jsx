@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BrandingEditor from './BrandingEditor.jsx';
 
 const API = '/api/v1';
 const ACCENT = '#528FF0';
@@ -117,6 +118,7 @@ export default function App() {
         <div style={S.logo}>⚡ SkarPay</div>
         <div style={S.navItem(tab === 'merchants')} onClick={() => setTab('merchants')}>Merchants</div>
         <div style={S.navItem(tab === 'payments')} onClick={() => setTab('payments')}>Payments</div>
+        <div style={S.navItem(tab === 'cashier')} onClick={() => setTab('cashier')}>Cashier Dock</div>
         <div style={S.navItem(tab === 'settings')} onClick={() => setTab('settings')}>Settings</div>
       </div>
 
@@ -190,6 +192,9 @@ export default function App() {
                       ))}
                     </div>
 
+                    <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Branding (White-Label)</h3>
+                    <BrandingEditor merchant={selected} apiKey={getApiKey(selected.id)} />
+
                     <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Create Payment</h3>
                     <form onSubmit={createPayment} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                       <div style={{ flex: 1 }}>
@@ -216,6 +221,10 @@ export default function App() {
           </div>
         )}
 
+        {tab === 'cashier' && (
+          <CashierDock apiKey={apiKeyInput || (selected ? localStorage.getItem('sk_apikey_' + selected.id) : '')} />
+        )}
+
         {tab === 'settings' && (
           <div style={S.card}>
             <h1 style={S.h1}>Settings</h1>
@@ -223,6 +232,48 @@ export default function App() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function CashierDock({ apiKey }) {
+  const [pending, setPending] = useState([]);
+  useEffect(() => {
+    if (!apiKey) return;
+    const iv = setInterval(async () => {
+      try {
+        const r = await fetch('/api/v1/admin/counter-pending', { headers: { 'X-API-Key': apiKey } });
+        const j = await r.json();
+        setPending(j.sessions || []);
+      } catch (e) {}
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [apiKey]);
+
+  async function approve(id) {
+    await fetch(`/api/v1/admin/counter-approve/${id}`, { method: 'POST', headers: { 'X-API-Key': apiKey } });
+  }
+  async function decline(id) {
+    await fetch(`/api/v1/admin/counter-decline/${id}`, { method: 'POST', headers: { 'X-API-Key': apiKey } });
+  }
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 4px' }}>Cashier Dock</h1>
+      <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 24px' }}>Pending counter payments (cash/card)</p>
+      {pending.length === 0 && <div style={{ color: '#9ca3af', padding: 40, textAlign: 'center', background: '#fff', borderRadius: 12 }}>No pending payments</div>}
+      {pending.map(s => (
+        <div key={s.id} style={{ background: '#fff', borderRadius: 12, padding: 20, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>₹{(s.amount_paise / 100).toFixed(2)}</div>
+            <div style={{ fontSize: 12, color: '#6b7280' }}>Order: {s.order_id} · {s.method}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => approve(s.id)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Approve</button>
+            <button onClick={() => decline(s.id)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Decline</button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
