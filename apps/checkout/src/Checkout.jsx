@@ -133,8 +133,7 @@ export default function Checkout() {
   return (
     <div style={C.page}>
       <div style={C.container}>
-        {/* LEFT PANEL - hidden on mobile/modal */}
-        {!isMobile && (
+        {/* LEFT PANEL */}
         <div style={C.left}>
           <div>
             {/* Branding header */}
@@ -195,19 +194,6 @@ export default function Checkout() {
             Powered by <span style={{ fontWeight: 700 }}>SKAR PAY</span>
           </div>
         </div>
-        )}
-
-        {/* Mobile compact header */}
-        {isMobile && (
-          <div style={{ background: 'linear-gradient(145deg, #06265E 0%, #073B91 55%, #0878F9 100%)', padding: '16px 20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700 }}>S</div>
-              <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '0.05em' }}>SKAR PAY</span>
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>₹{(p.amountPaise / 100).toFixed(2)}</div>
-          </div>
-        )}
-
         {/* RIGHT PANEL */}
         <div style={C.right}>
           {/* Top toolbar */}
@@ -235,11 +221,19 @@ export default function Checkout() {
             <span style={{ color: '#9ca3af', fontSize: 18 }}>›</span>
           </div>
 
-          {/* UPI QR Panel */}
+          {/* UPI Panel */}
           {selectedMethod === 'upi' && (
             <div style={{ background: '#F0F7FF', border: '1px solid #D6E8FF', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
               <h4 style={{ fontSize: 16, fontWeight: 600, color: '#111', margin: '0 0 4px' }}>Scan & Pay with UPI QR</h4>
               <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 16px' }}>Open any supported UPI app and scan the QR code.</p>
+              {isMobile ? (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <a href={`upi://pay?pa=${encodeURIComponent(data.account?.vpa || '')}&pn=${encodeURIComponent(brandName)}&am=${amount}&tn=${encodeURIComponent(p.orderId)}`} style={{ display: 'inline-block', background: '#528FF0', color: '#fff', padding: '14px 32px', borderRadius: 8, fontSize: 16, fontWeight: 600, textDecoration: 'none' }}>
+                    Pay with UPI App
+                  </a>
+                  <p style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>Opens GPay, PhonePe, Paytm, or BHIM</p>
+                </div>
+              ) : (
               <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
                 {/* QR */}
                 <div style={{ background: '#fff', borderRadius: 10, padding: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -270,6 +264,7 @@ export default function Checkout() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           )}
 
