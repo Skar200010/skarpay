@@ -43,7 +43,7 @@
         const r = await fetch(API + '/api/v1/payments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
-          body: JSON.stringify({ order_id: 'ORD-' + Date.now(), amount: '499', customer: { name: 'Demo Buyer', phone: '9999999999' } })
+          body: JSON.stringify({ order_id: 'ORD-' + Date.now(), amount: '1', customer: { name: 'Demo Buyer', phone: '9999999999' } })
         });
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || 'Failed');

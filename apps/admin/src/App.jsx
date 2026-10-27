@@ -198,7 +198,10 @@ export default function App() {
                       {accounts.length === 0 && <div style={{ fontSize: 13, color: '#9ca3af' }}>No accounts yet</div>}
                       {accounts.map(a => (
                         <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 4, fontSize: 13, opacity: a.is_active ? 1 : 0.5 }}>
-                          <span><strong>{a.vpa}</strong> — {a.account_name}</span>
+                          <div>
+                            <span><strong>{a.vpa}</strong> — {a.account_name}</span>
+                            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>ID: {a.id}</div>
+                          </div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <span style={S.badge(a.is_slot_busy ? '#f59e0b' : '#10b981')}>{a.is_slot_busy ? 'Busy' : 'Free'}</span>
                             <span style={S.badge(a.is_active ? '#10b981' : '#ef4444')}>{a.is_active ? 'Active' : 'Inactive'}</span>
