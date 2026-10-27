@@ -268,6 +268,27 @@ export default function Checkout() {
             </div>
           )}
 
+          {/* Non-UPI method info panel */}
+          {selectedMethod !== 'upi' && (
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 12, padding: '24px', marginBottom: 20, textAlign: 'center' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>{selectedMethod === 'cards' ? '💳' : selectedMethod === 'netbanking' ? '🏦' : selectedMethod === 'wallets' ? '👛' : '📅'}</div>
+              <h4 style={{ fontSize: 16, fontWeight: 600, color: '#111', margin: '0 0 8px' }}>
+                {selectedMethod === 'cards' ? 'Card Payment' : selectedMethod === 'netbanking' ? 'Net Banking' : selectedMethod === 'wallets' ? 'Wallet Payment' : 'EMI'}
+              </h4>
+              <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 16px' }}>
+                {selectedMethod === 'cards' ? 'Card payments are processed at the store counter. Please visit the counter to complete your payment.' :
+                 selectedMethod === 'netbanking' ? 'Net banking transfers can be made directly to the merchant UPI ID shown above.' :
+                 selectedMethod === 'wallets' ? 'Wallet payments are supported via UPI. Please use the UPI option.' :
+                 'EMI options are available for orders above ₹3,000. Contact the merchant for details.'}
+              </p>
+              {selectedMethod === 'netbanking' && (
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 13, fontFamily: 'monospace', color: '#111' }}>
+                  UPI ID: {data.account?.vpa}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Other payment methods */}
           {[
             { id: 'cards', title: 'Cards', desc: 'Visa, Mastercard, RuPay, and more.', icon: '💳' },
