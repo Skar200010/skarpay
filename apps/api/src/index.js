@@ -6,6 +6,7 @@ import { initSupabase, getAdmin } from '../../../packages/db/src/supabase.js';
 import merchantRoutes from './routes/merchants.routes.js';
 import paymentRoutes from './routes/payments.routes.js';
 import checkoutRoutes from './routes/checkout.routes.js';
+import observerRoutes from './routes/observers.routes.js';
 
 initSupabase({
   url: process.env.SUPABASE_URL,
@@ -27,6 +28,7 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/merchants', merchantRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/checkout', checkoutRoutes);
+app.use('/api/v1/observers', observerRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[api] error:', err);
