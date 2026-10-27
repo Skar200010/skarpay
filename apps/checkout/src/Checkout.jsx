@@ -23,20 +23,20 @@ export default function Checkout() {
     return () => clearTimeout(timer);
   }, [id]);
 
+  useEffect(() => {
+    if (status === 'SUCCESS' && data && window.parent !== window) {
+      window.parent.postMessage({ type: 'skarpay:success', payload: { status: 'SUCCESS', order_id: data.payment.orderId, amount_received: data.payment.amountPaise / 100 } }, '*');
+    }
+    if (status === 'FAILED' && data && window.parent !== window) {
+      window.parent.postMessage({ type: 'skarpay:failed', payload: { status: 'FAILED', order_id: data.payment.orderId } }, '*');
+    }
+  }, [status, data]);
+
   if (status === 'LOADING') return <div style={{ padding: 40, textAlign: 'center' }}>Loading…</div>;
   if (status === 'ERROR') return <div style={{ padding: 40, textAlign: 'center', color: 'red' }}>{err}</div>;
 
   const p = data.payment;
   const expired = p.expiresAt && new Date(p.expiresAt) < new Date();
-
-  useEffect(() => {
-    if (status === 'SUCCESS' && window.parent !== window) {
-      window.parent.postMessage({ type: 'skarpay:success', payload: { status: 'SUCCESS', order_id: p?.orderId, amount_received: p ? p.amountPaise / 100 : null } }, '*');
-    }
-    if (status === 'FAILED' && window.parent !== window) {
-      window.parent.postMessage({ type: 'skarpay:failed', payload: { status: 'FAILED', order_id: p?.orderId } }, '*');
-    }
-  }, [status]);
 
   if (status === 'SUCCESS') {
     return (
