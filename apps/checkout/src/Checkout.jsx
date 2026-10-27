@@ -51,11 +51,12 @@ export default function Checkout() {
   const brandName = brand.name || data?.merchant?.name || 'Merchant';
   const logo = brand.logoUrl;
 
+  const isMobile = window.innerWidth < 768;
   const C = {
-    page: { minHeight: '100vh', background: '#F3F5FA', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: 24 },
-    container: { display: 'flex', width: '100%', maxWidth: 1475, background: '#fff', borderRadius: 20, boxShadow: '0 20px 60px rgba(0,0,0,0.08)', overflow: 'hidden', minHeight: 720 },
-    left: { width: '47%', background: 'linear-gradient(145deg, #06265E 0%, #073B91 55%, #0878F9 100%)', padding: '36px 40px', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
-    right: { width: '53%', background: '#fff', padding: '38px 40px', display: 'flex', flexDirection: 'column' },
+    page: { minHeight: '100vh', background: '#F3F5FA', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', padding: isMobile ? 0 : 24 },
+    container: { display: 'flex', flexDirection: isMobile ? 'column' : 'row', width: '100%', maxWidth: isMobile ? '100%' : 1475, background: '#fff', borderRadius: isMobile ? 0 : 20, boxShadow: isMobile ? 'none' : '0 20px 60px rgba(0,0,0,0.08)', overflow: 'hidden', minHeight: isMobile ? 'auto' : 720 },
+    left: { width: isMobile ? '100%' : '47%', background: 'linear-gradient(145deg, #06265E 0%, #073B91 55%, #0878F9 100%)', padding: isMobile ? '20px 24px' : '36px 40px', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: isMobile ? 'flex-start' : 'space-between' },
+    right: { width: isMobile ? '100%' : '53%', background: '#fff', padding: isMobile ? '20px 24px' : '38px 40px', display: 'flex', flexDirection: 'column' },
   };
 
   if (status === 'LOADING') {
@@ -132,7 +133,8 @@ export default function Checkout() {
   return (
     <div style={C.page}>
       <div style={C.container}>
-        {/* LEFT PANEL */}
+        {/* LEFT PANEL - hidden on mobile/modal */}
+        {!isMobile && (
         <div style={C.left}>
           <div>
             {/* Branding header */}
@@ -193,6 +195,18 @@ export default function Checkout() {
             Powered by <span style={{ fontWeight: 700 }}>SKAR PAY</span>
           </div>
         </div>
+        )}
+
+        {/* Mobile compact header */}
+        {isMobile && (
+          <div style={{ background: 'linear-gradient(145deg, #06265E 0%, #073B91 55%, #0878F9 100%)', padding: '16px 20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700 }}>S</div>
+              <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '0.05em' }}>SKAR PAY</span>
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>₹{(p.amountPaise / 100).toFixed(2)}</div>
+          </div>
+        )}
 
         {/* RIGHT PANEL */}
         <div style={C.right}>
