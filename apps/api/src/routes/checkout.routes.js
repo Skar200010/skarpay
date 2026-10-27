@@ -40,6 +40,19 @@ router.get('/:id', async (req, res) => {
   });
 });
 
+// Public: start verification window (customer clicked "I've Paid")
+router.post('/:id/processing', async (req, res) => {
+  const supabase = requireAdmin();
+  const { data: session } = await supabase.from('payment_sessions').select('*').eq('id', req.params.id).single();
+  if (!session) return res.status(404).json({ error: 'not found' });
+  if (session.status !== 'ACTIVE') return res.status(400).json({ error: 'session not active' });
+  const { assertTransition } = await import('../services/state-machine.js');
+  assertTransition('ACTIVE', 'PROCESSING');
+  const procExpires = new Date(Date.now() + 30 * 1000).toISOString();
+  await supabase.from('payment_sessions').update({ status: 'PROCESSING', processing_expires_at: procExpires }).eq('id', session.id);
+  res.json({ status: 'PROCESSING', processingExpiresAt: procExpires });
+});
+
 // Public cancel
 router.post('/:id/cancel', async (req, res) => {
   const supabase = requireAdmin();

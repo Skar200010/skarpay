@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const API = '/api/v1';
+const ACCENT = '#528FF0';
 
 export default function App() {
   const [merchants, setMerchants] = useState([]);
@@ -11,9 +12,10 @@ export default function App() {
   const [accounts, setAccounts] = useState([]);
   const [vpa, setVpa] = useState('');
   const [acctName, setAcctName] = useState('');
-  const [sessions, setSessions] = useState([]);
-  const [orderAmt, setOrderAmt] = useState('499');
   const [orderId, setOrderId] = useState('ORD-1');
+  const [orderAmt, setOrderAmt] = useState('499');
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [tab, setTab] = useState('merchants');
 
   async function loadMerchants() {
     const r = await fetch(`${API}/merchants`);
@@ -33,21 +35,26 @@ export default function App() {
     const j = await r.json();
     if (!r.ok) { setErr(j.error || 'failed'); return; }
     setCreds(j.credentials);
+    localStorage.setItem('sk_apikey_' + j.merchant.id, j.credentials.api_key);
     setName('');
     loadMerchants();
+    setSelected(j.merchant);
+    setApiKeyInput(j.credentials.api_key);
+    loadAccounts(j.merchant.id, j.credentials.api_key);
+  }
+
+  function getApiKey(mid) {
+    return apiKeyInput || localStorage.getItem('sk_apikey_' + mid) || '';
   }
 
   async function selectMerchant(m) {
     setSelected(m);
-    // need api key - prompt user to paste? For admin we don't have it stored. Use service? 
-    // For MVP admin, store api key in localStorage after creation.
-    loadAccounts(m.id);
-    loadSessions(m.id);
+    const key = localStorage.getItem('sk_apikey_' + m.id) || '';
+    setApiKeyInput(key);
+    await loadAccounts(m.id, key);
   }
 
-  async function loadAccounts(merchantId) {
-    // admin has no api key; use a stored key if available
-    const key = localStorage.getItem('sk_apikey_' + merchantId);
+  async function loadAccounts(merchantId, key) {
     if (!key) { setAccounts([]); return; }
     const r = await fetch(`${API}/payments/accounts`, { headers: { 'X-API-Key': key } });
     const j = await r.json();
@@ -57,8 +64,8 @@ export default function App() {
   async function addAccount(e) {
     e.preventDefault();
     if (!selected) return;
-    const key = localStorage.getItem('sk_apikey_' + selected.id);
-    if (!key) { setErr('API key not found for this merchant. Paste it below.'); return; }
+    const key = getApiKey(selected.id);
+    if (!key) { setErr('API key missing'); return; }
     const r = await fetch(`${API}/payments/accounts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
@@ -67,18 +74,13 @@ export default function App() {
     const j = await r.json();
     if (!r.ok) { setErr(j.error || 'failed'); return; }
     setVpa(''); setAcctName('');
-    loadAccounts(selected.id);
-  }
-
-  async function loadSessions(merchantId) {
-    // no list endpoint yet; skip
-    setSessions([]);
+    loadAccounts(selected.id, key);
   }
 
   async function createPayment(e) {
     e.preventDefault();
     if (!selected) return;
-    const key = localStorage.getItem('sk_apikey_' + selected.id);
+    const key = getApiKey(selected.id);
     if (!key) { setErr('API key missing'); return; }
     const r = await fetch(`${API}/payments`, {
       method: 'POST',
@@ -87,75 +89,137 @@ export default function App() {
     });
     const j = await r.json();
     if (!r.ok) { setErr(j.error || 'failed'); return; }
-    alert('Payment created: ' + j.paymentId + '\nCheckout: ' + j.checkoutUrl);
     window.open(j.checkoutUrl, '_blank');
   }
 
-  // Save api key when creds shown
-  useEffect(() => {
-    if (creds && merchants.length) {
-      const last = merchants[merchants.length - 1];
-      if (last) localStorage.setItem('sk_apikey_' + last.id, creds.api_key);
-    }
-  }, [creds, merchants]);
+  const S = {
+    app: { display: 'flex', minHeight: '100vh', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: '#f4f6f9' },
+    sidebar: { width: 240, background: '#1e293b', color: '#fff', padding: '24px 0', flexShrink: 0 },
+    logo: { fontSize: 20, fontWeight: 700, padding: '0 24px 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: 16 },
+    navItem: (active) => ({ padding: '10px 24px', cursor: 'pointer', background: active ? 'rgba(82,143,240,0.15)' : 'transparent', borderLeft: active ? `3px solid ${ACCENT}` : '3px solid transparent', color: active ? '#fff' : '#94a3b8', fontSize: 14, fontWeight: active ? 600 : 400 }),
+    main: { flex: 1, padding: 32, overflow: 'auto' },
+    card: { background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', padding: 24, marginBottom: 20 },
+    h1: { fontSize: 24, fontWeight: 700, margin: '0 0 4px', color: '#111' },
+    h2: { fontSize: 18, fontWeight: 600, margin: '0 0 16px', color: '#111' },
+    input: { padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, width: '100%', outline: 'none' },
+    btn: { background: ACCENT, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+    btnSm: { background: ACCENT, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+    label: { fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block', fontWeight: 500 },
+    badge: (color) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: color + '20', color }),
+    table: { width: '100%', borderCollapse: 'collapse' },
+    th: { textAlign: 'left', padding: '10px 12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase', letterSpacing: '0.05em' },
+    td: { padding: '12px', fontSize: 14, borderBottom: '1px solid #f3f4f6' },
+  };
 
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: 24, maxWidth: 1100, margin: '0 auto' }}>
-      <h1>SkarPay Admin</h1>
+    <div style={S.app}>
+      <div style={S.sidebar}>
+        <div style={S.logo}>⚡ SkarPay</div>
+        <div style={S.navItem(tab === 'merchants')} onClick={() => setTab('merchants')}>Merchants</div>
+        <div style={S.navItem(tab === 'payments')} onClick={() => setTab('payments')}>Payments</div>
+        <div style={S.navItem(tab === 'settings')} onClick={() => setTab('settings')}>Settings</div>
+      </div>
 
-      <h2>Create Merchant</h2>
-      <form onSubmit={createMerchant} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Business name" style={{ flex: 1, padding: 8 }} />
-        <button type="submit">Create</button>
-      </form>
-      {err && <div style={{ color: 'red', marginBottom: 12 }}>{err}</div>}
-      {creds && (
-        <div style={{ background: '#f0fff0', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-          <strong>Save these credentials (shown once):</strong>
-          <div>API Key: <code>{creds.api_key}</code></div>
-          <div>Webhook Secret: <code>{creds.webhook_secret}</code></div>
-        </div>
-      )}
+      <div style={S.main}>
+        {tab === 'merchants' && (
+          <>
+            <h1 style={S.h1}>Merchants</h1>
+            <p style={{ color: '#6b7280', margin: '0 0 24px', fontSize: 14 }}>Manage your merchant accounts and payment settings</p>
 
-      <h2>Merchants</h2>
-      <div style={{ display: 'flex', gap: 16 }}>
-        <div style={{ flex: 1 }}>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {merchants.map(m => (
-              <li key={m.id} style={{ padding: 8, border: '1px solid #ddd', marginBottom: 4, borderRadius: 6, cursor: 'pointer', background: selected?.id === m.id ? '#eef' : '#fff' }}
-                  onClick={() => selectMerchant(m)}>
-                {m.business_name} <span style={{ fontSize: 11, color: '#888' }}>({m.id.slice(0, 8)})</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {selected && (
-          <div style={{ flex: 2 }}>
-            <h3>{selected.business_name} — Accounts (VPAs)</h3>
-            <form onSubmit={addAccount} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <input value={vpa} onChange={e => setVpa(e.target.value)} placeholder="VPA e.g. sohan@upi" style={{ flex: 1, padding: 8 }} />
-              <input value={acctName} onChange={e => setAcctName(e.target.value)} placeholder="Account name" style={{ flex: 1, padding: 8 }} />
-              <button type="submit">Add VPA</button>
-            </form>
-            <ul>
-              {accounts.map(a => (
-                <li key={a.id}>{a.vpa} — {a.account_name} {a.is_slot_busy ? '(BUSY)' : '(free)'}</li>
-              ))}
-            </ul>
-
-            <h3>Create Payment</h3>
-            <form onSubmit={createPayment} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <input value={orderId} onChange={e => setOrderId(e.target.value)} placeholder="Order ID" style={{ flex: 1, padding: 8 }} />
-              <input value={orderAmt} onChange={e => setOrderAmt(e.target.value)} placeholder="Amount (INR)" style={{ width: 120, padding: 8 }} />
-              <button type="submit">Create & Open Checkout</button>
-            </form>
-
-            <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
-              API key for this merchant (paste if missing):
-              <input placeholder="mk_live_..." style={{ width: '100%', padding: 4, marginTop: 4 }}
-                onBlur={e => { if (e.target.value) localStorage.setItem('sk_apikey_' + selected.id, e.target.value); loadAccounts(selected.id); }} />
+            <div style={S.card}>
+              <h2 style={S.h2}>Create Merchant</h2>
+              <form onSubmit={createMerchant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={S.label}>Business Name</label>
+                  <input style={S.input} value={name} onChange={e => setName(e.target.value)} placeholder="Acme Store" />
+                </div>
+                <button type="submit" style={S.btn}>Create Merchant</button>
+              </form>
+              {err && <div style={{ color: '#ef4444', marginTop: 12, fontSize: 13 }}>{err}</div>}
+              {creds && (
+                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: 16, marginTop: 16 }}>
+                  <div style={{ fontWeight: 600, color: '#065f46', marginBottom: 8 }}>⚠️ Save these credentials (shown once)</div>
+                  <div style={{ fontSize: 13, marginBottom: 4 }}><strong>API Key:</strong> <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>{creds.api_key}</code></div>
+                  <div style={{ fontSize: 13 }}><strong>Webhook Secret:</strong> <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>{creds.webhook_secret}</code></div>
+                </div>
+              )}
             </div>
+
+            <div style={{ display: 'flex', gap: 20 }}>
+              <div style={{ flex: 1 }}>
+                <div style={S.card}>
+                  <h2 style={S.h2}>All Merchants</h2>
+                  <table style={S.table}>
+                    <thead><tr><th style={S.th}>Business</th><th style={S.th}>ID</th><th style={S.th}>Status</th></tr></thead>
+                    <tbody>
+                      {merchants.map(m => (
+                        <tr key={m.id} style={{ cursor: 'pointer', background: selected?.id === m.id ? '#eff6ff' : 'transparent' }} onClick={() => selectMerchant(m)}>
+                          <td style={S.td}><strong>{m.business_name}</strong></td>
+                          <td style={{ ...S.td, fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' }}>{m.id.slice(0, 8)}…</td>
+                          <td style={S.td}><span style={S.badge(m.is_active ? '#10b981' : '#ef4444')}>{m.is_active ? 'Active' : 'Inactive'}</span></td>
+                        </tr>
+                      ))}
+                      {merchants.length === 0 && <tr><td colSpan={3} style={{ ...S.td, textAlign: 'center', color: '#9ca3af' }}>No merchants yet</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {selected && (
+                <div style={{ flex: 1.5 }}>
+                  <div style={S.card}>
+                    <h2 style={S.h2}>{selected.business_name}</h2>
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={S.label}>API Key (paste if not saved)</label>
+                      <input style={S.input} value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onBlur={() => loadAccounts(selected.id, apiKeyInput)} placeholder="mk_live_..." />
+                    </div>
+
+                    <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Receiving Accounts (VPAs)</h3>
+                    <form onSubmit={addAccount} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      <input style={{ ...S.input, flex: 1 }} value={vpa} onChange={e => setVpa(e.target.value)} placeholder="yourname@okaxis" />
+                      <input style={{ ...S.input, flex: 1 }} value={acctName} onChange={e => setAcctName(e.target.value)} placeholder="Account name" />
+                      <button type="submit" style={S.btnSm}>Add VPA</button>
+                    </form>
+                    <div style={{ marginBottom: 16 }}>
+                      {accounts.length === 0 && <div style={{ fontSize: 13, color: '#9ca3af' }}>No accounts yet</div>}
+                      {accounts.map(a => (
+                        <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 4, fontSize: 13 }}>
+                          <span><strong>{a.vpa}</strong> — {a.account_name}</span>
+                          <span style={S.badge(a.is_slot_busy ? '#f59e0b' : '#10b981')}>{a.is_slot_busy ? 'Busy' : 'Free'}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Create Payment</h3>
+                    <form onSubmit={createPayment} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={S.label}>Order ID</label>
+                        <input style={S.input} value={orderId} onChange={e => setOrderId(e.target.value)} />
+                      </div>
+                      <div style={{ width: 100 }}>
+                        <label style={S.label}>Amount (₹)</label>
+                        <input style={S.input} value={orderAmt} onChange={e => setOrderAmt(e.target.value)} />
+                      </div>
+                      <button type="submit" style={S.btn}>Create & Checkout</button>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {tab === 'payments' && (
+          <div style={S.card}>
+            <h1 style={S.h1}>Payments</h1>
+            <p style={{ color: '#6b7280', fontSize: 14 }}>Recent payment sessions are stored in Supabase. View via Supabase dashboard or use the API.</p>
+          </div>
+        )}
+
+        {tab === 'settings' && (
+          <div style={S.card}>
+            <h1 style={S.h1}>Settings</h1>
+            <p style={{ color: '#6b7280', fontSize: 14 }}>Branding, webhook URLs, and more can be configured via the API (PUT /api/v1/merchants/:id).</p>
           </div>
         )}
       </div>
