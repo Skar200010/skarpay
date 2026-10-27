@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import BrandingEditor from './BrandingEditor.jsx';
 import PaymentsView from './PaymentsView.jsx';
+import SettingsView from './SettingsView.jsx';
 
 const API = '/api/v1';
 const ACCENT = '#528FF0';
@@ -252,10 +253,7 @@ export default function App() {
         )}
 
         {tab === 'settings' && (
-          <div style={S.card}>
-            <h1 style={S.h1}>Settings</h1>
-            <p style={{ color: '#6b7280', fontSize: 14 }}>Branding, webhook URLs, and more can be configured via the API (PUT /api/v1/merchants/:id).</p>
-          </div>
+          <SettingsView selected={selected} apiKey={apiKeyInput || (selected ? localStorage.getItem('sk_apikey_' + selected.id) : '')} />
         )}
       </div>
     </div>
