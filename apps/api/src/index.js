@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import helmet from 'helmet';
 import { initSupabase, getAdmin } from '../../../packages/db/src/supabase.js';
@@ -25,6 +27,9 @@ const PORT = process.env.API_PORT || 4100;
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+// Serve SDK
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use('/sdk', express.static(path.resolve(__dirname, '../../sdk')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'skarpay-api', supabase: !!getAdmin(), ts: new Date().toISOString() });

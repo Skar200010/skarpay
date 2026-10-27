@@ -23,62 +23,24 @@
     <h1>🛍️ Demo Store</h1>
     <p>Premium T-Shirt (Size M)</p>
     <div class="price">Rs. 1.00</div>
-    <button class="pay-btn" id="payBtn" onclick="payNow()">Pay Now with SkarPay</button>
+    <button class="pay-btn" data-skarpay-pay data-order-id="ORD-DEMO-1" data-amount="1" data-currency="INR" data-api-key="mk_live_4d9dc1f0ccc434eeb140d962e3700dec055616dda00cd20f">
+      Pay Now with SkarPay
+    </button>
     <div id="status"></div>
   </div>
 
+  <script src="http://localhost:4100/sdk/skarpay.js" data-api-key="mk_live_4d9dc1f0ccc434eeb140d962e3700dec055616dda00cd20f"></script>
   <script>
-    const API_KEY = 'mk_live_c41eafcaa16b6a180ede9166c04bbfe8d0c9f5472f51cc87';
-    const API = 'http://localhost:4100';
-
-    async function payNow() {
-      const btn = document.getElementById('payBtn');
-      const status = document.getElementById('status');
-      btn.disabled = true;
-      btn.textContent = 'Creating payment...';
-      status.className = 'info';
-      status.textContent = 'Creating payment session...';
-
-      try {
-        const r = await fetch(API + '/api/v1/payments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
-          body: JSON.stringify({ order_id: 'ORD-' + Date.now(), amount: '1', customer: { name: 'Demo Buyer', phone: '9999999999' } })
-        });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || 'Failed');
-
-        status.textContent = 'Opening checkout...';
-        const checkoutUrl = j.checkoutUrl;
-        const win = window.open(checkoutUrl, 'skarpay_checkout', 'width=440,height=640');
-
-        // Poll for status
-        const poll = setInterval(async () => {
-          try {
-            const s = await fetch(API + '/api/v1/payments/' + j.paymentId, { headers: { 'X-API-Key': API_KEY } });
-            const sj = await s.json();
-            if (sj.payment.status === 'SUCCESS') {
-              clearInterval(poll);
-              status.className = 'success';
-              status.textContent = '✅ Payment Successful! UTR: ' + (sj.payment.utr || '—');
-              btn.disabled = false;
-              btn.textContent = 'Pay Now with SkarPay';
-            } else if (['FAILED', 'EXPIRED', 'CANCELLED'].includes(sj.payment.status)) {
-              clearInterval(poll);
-              status.className = 'failed';
-              status.textContent = '❌ Payment ' + sj.payment.status;
-              btn.disabled = false;
-              btn.textContent = 'Pay Now with SkarPay';
-            }
-          } catch (e) {}
-        }, 3000);
-      } catch (e) {
-        status.className = 'failed';
-        status.textContent = '❌ Error: ' + e.message;
-        btn.disabled = false;
-        btn.textContent = 'Pay Now with SkarPay';
-      }
-    }
+    window.addEventListener('skarpay:payment:success', (e) => {
+      const s = document.getElementById('status');
+      s.className = 'success';
+      s.textContent = '✅ Payment Successful! UTR: ' + (e.detail.utr || '—');
+    });
+    window.addEventListener('skarpay:payment:failed', (e) => {
+      const s = document.getElementById('status');
+      s.className = 'failed';
+      s.textContent = '❌ Payment Failed';
+    });
   </script>
 </body>
 </html>
