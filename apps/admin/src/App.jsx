@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import BrandingEditor from './BrandingEditor.jsx';
+import PaymentsView from './PaymentsView.jsx';
 
 const API = '/api/v1';
 const ACCENT = '#528FF0';
@@ -215,10 +216,7 @@ export default function App() {
         )}
 
         {tab === 'payments' && (
-          <div style={S.card}>
-            <h1 style={S.h1}>Payments</h1>
-            <p style={{ color: '#6b7280', fontSize: 14 }}>Recent payment sessions are stored in Supabase. View via Supabase dashboard or use the API.</p>
-          </div>
+          <PaymentsView apiKey={apiKeyInput || (selected ? localStorage.getItem('sk_apikey_' + selected.id) : '')} />
         )}
 
         {tab === 'cashier' && (

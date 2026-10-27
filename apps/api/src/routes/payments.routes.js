@@ -120,6 +120,20 @@ router.post('/', async (req, res) => {
   });
 });
 
+// List payments for merchant
+router.get('/', async (req, res) => {
+  const supabase = requireAdmin();
+  const limit = parseInt(req.query.limit || '50', 10);
+  const { data, error } = await supabase
+    .from('payment_sessions')
+    .select('id, order_id, amount_paise, currency, method, status, utr, created_at, expires_at')
+    .eq('merchant_id', req.merchant.id)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ payments: data || [] });
+});
+
 // Get payment status
 router.get('/:id', async (req, res) => {
   const supabase = requireAdmin();
