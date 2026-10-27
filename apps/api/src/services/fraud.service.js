@@ -1,4 +1,4 @@
-import { requireAdmin } from '../../../../../packages/db/src/supabase.js';
+import { requireAdmin } from '../../../../packages/db/src/supabase.js';
 
 // Check if a customer is banned.
 export async function isBanned(mobileNumber) {
