@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkarPay Demo Merchant</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; background: #f4f6f9; margin: 0; padding: 40px; }
+    .card { background: #fff; border-radius: 12px; padding: 32px; max-width: 480px; margin: 0 auto; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    .price { font-size: 32px; font-weight: 700; color: #528FF0; margin: 16px 0; }
+    .pay-btn { background: #528FF0; color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
+    .pay-btn:hover { background: #4070d0; }
+    .pay-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+    #status { margin-top: 20px; padding: 12px; border-radius: 8px; display: none; }
+    .success { background: #ecfdf5; color: #065f46; display: block !important; }
+    .failed { background: #fef2f2; color: #991b1b; display: block !important; }
+    .info { background: #eff6ff; color: #1e40af; display: block !important; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🛍️ Demo Store</h1>
+    <p>Premium T-Shirt (Size M)</p>
+    <div class="price">₹499.00</div>
+    <button class="pay-btn" id="payBtn" onclick="payNow()">Pay Now with SkarPay</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const API_KEY = 'mk_live_4d9dc1f0ccc434eeb140d962e3700dec055616dda00cd20f';
+    const API = 'http://localhost:4100';
+
+    async function payNow() {
+      const btn = document.getElementById('payBtn');
+      const status = document.getElementById('status');
+      btn.disabled = true;
+      btn.textContent = 'Creating payment...';
+      status.className = 'info';
+      status.textContent = 'Creating payment session...';
+
+      try {
+        const r = await fetch(API + '/api/v1/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+          body: JSON.stringify({ order_id: 'ORD-' + Date.now(), amount: '499', customer: { name: 'Demo Buyer', phone: '9999999999' } })
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'Failed');
+
+        status.textContent = 'Opening checkout...';
+        const checkoutUrl = j.checkoutUrl;
+        const win = window.open(checkoutUrl, 'skarpay_checkout', 'width=440,height=640');
+
+        // Poll for status
+        const poll = setInterval(async () => {
+          try {
+            const s = await fetch(API + '/api/v1/payments/' + j.paymentId, { headers: { 'X-API-Key': API_KEY } });
+            const sj = await s.json();
+            if (sj.payment.status === 'SUCCESS') {
+              clearInterval(poll);
+              status.className = 'success';
+              status.textContent = '✅ Payment Successful! UTR: ' + (sj.payment.utr || '—');
+              btn.disabled = false;
+              btn.textContent = 'Pay Now with SkarPay';
+            } else if (['FAILED', 'EXPIRED', 'CANCELLED'].includes(sj.payment.status)) {
+              clearInterval(poll);
+              status.className = 'failed';
+              status.textContent = '❌ Payment ' + sj.payment.status;
+              btn.disabled = false;
+              btn.textContent = 'Pay Now with SkarPay';
+            }
+          } catch (e) {}
+        }, 3000);
+      } catch (e) {
+        status.className = 'failed';
+        status.textContent = '❌ Error: ' + e.message;
+        btn.disabled = false;
+        btn.textContent = 'Pay Now with SkarPay';
+      }
+    }
+  </script>
+</body>
+</html>
