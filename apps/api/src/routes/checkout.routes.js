@@ -33,6 +33,7 @@ router.get('/:id', async (req, res) => {
       status: session.status,
       expiresAt: session.expires_at,
       method: session.method,
+      utr: session.utr,
     },
     merchant: { name: merchant?.business_name, branding: merchant?.branding },
     account: { vpa: account?.vpa },
