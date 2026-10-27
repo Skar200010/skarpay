@@ -11,6 +11,7 @@ import adminRoutes from './routes/admin.routes.js';
 import customerRoutes from './routes/customers.routes.js';
 import { startSweeper } from './services/sweeper.js';
 import { startWebhookRetry } from './services/webhook-retry.js';
+import { initWhatsApp } from './services/whatsapp.service.js';
 
 initSupabase({
   url: process.env.SUPABASE_URL,
@@ -47,6 +48,7 @@ app.listen(PORT, () => {
   console.log('[sweeper] started');
   startWebhookRetry();
   console.log('[webhook-retry] started');
+  initWhatsApp();
 });
 
 export default app;

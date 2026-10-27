@@ -1,6 +1,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { requireAdmin } from '../../../../packages/db/src/supabase.js';
+import { sendOtp } from '../services/whatsapp.service.js';
 
 const router = express.Router();
 
@@ -33,8 +34,9 @@ router.post('/request-otp', async (req, res) => {
   // Store OTP in audit log (MVP only; production uses WhatsApp)
   await supabase.from('audit_logs').insert({ session_id: null, event_type: 'OTP_ISSUED', details: { mobile, otp } });
 
-  // In production, send via WhatsApp (Baileys). For MVP, return otp in response.
-  res.json({ message: 'OTP issued', otp, expiresIn: 300 });
+  // Send via WhatsApp (Baileys) if enabled, else return otp for testing.
+  const result = await sendOtp(mobile, otp);
+  res.json({ message: 'OTP issued', otp: result.sent ? undefined : otp, expiresIn: 300, whatsapp: result });
 });
 
 // Verify OTP
