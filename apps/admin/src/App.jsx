@@ -8,6 +8,8 @@ const ACCENT = '#528FF0';
 export default function App() {
   const [merchants, setMerchants] = useState([]);
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [upi, setUpi] = useState('');
   const [creds, setCreds] = useState(null);
   const [err, setErr] = useState('');
   const [selected, setSelected] = useState(null);
@@ -32,7 +34,7 @@ export default function App() {
     const r = await fetch(`${API}/merchants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ business_name: name }),
+      body: JSON.stringify({ business_name: name, branding: { phone, upi, name } }),
     });
     const j = await r.json();
     if (!r.ok) { setErr(j.error || 'failed'); return; }
@@ -131,10 +133,18 @@ export default function App() {
 
             <div style={S.card}>
               <h2 style={S.h2}>Create Merchant</h2>
-              <form onSubmit={createMerchant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-                <div style={{ flex: 1 }}>
+              <form onSubmit={createMerchant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
                   <label style={S.label}>Business Name</label>
                   <input style={S.input} value={name} onChange={e => setName(e.target.value)} placeholder="Acme Store" />
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <label style={S.label}>Phone (WhatsApp)</label>
+                  <input style={S.input} value={phone} onChange={e => setPhone(e.target.value)} placeholder="9876543210" />
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <label style={S.label}>UPI ID (VPA)</label>
+                  <input style={S.input} value={upi} onChange={e => setUpi(e.target.value)} placeholder="merchant@okaxis" />
                 </div>
                 <button type="submit" style={S.btn}>Create Merchant</button>
               </form>

@@ -5,6 +5,7 @@ export default function Checkout() {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('LOADING');
   const [err, setErr] = useState('');
+  const [method, setMethod] = useState('upi');
 
   useEffect(() => {
     let timer;
@@ -183,10 +184,18 @@ export default function Checkout() {
           </div>
         </div>
         <div style={styles.body}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, background: '#f3f4f6', borderRadius: 8, padding: 4 }}>
+            {['upi', 'card', 'cod'].map(m => (
+              <button key={m} onClick={() => setMethod(m)} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: method === m ? '#fff' : 'transparent', color: method === m ? accent : '#6b7280', boxShadow: method === m ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
+                {m === 'upi' ? 'UPI' : m === 'card' ? 'Card' : 'Cash on Delivery'}
+              </button>
+            ))}
+          </div>
           <div style={{ marginBottom: 16 }}>
             <div style={styles.label}>Order ID</div>
             <div style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{p.orderId}</div>
           </div>
+          {method === 'upi' && (
           <div style={{ textAlign: 'center', margin: '20px 0' }}>
             <div style={styles.qrWrap}>
               {data.qr && <div dangerouslySetInnerHTML={{ __html: data.qr.svg }} />}
@@ -194,6 +203,21 @@ export default function Checkout() {
             <p style={{ fontSize: 13, color: '#6b7280', margin: '8px 0 0' }}>Scan with any UPI app</p>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: '4px 0 0', fontFamily: 'monospace' }}>{data.account?.vpa}</p>
           </div>
+          )}
+          {method === 'card' && (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>💳</div>
+              <p style={{ fontWeight: 600, color: '#111' }}>Pay by Card at Counter</p>
+              <p style={{ fontSize: 13 }}>Please visit the store counter to complete card payment.</p>
+            </div>
+          )}
+          {method === 'cod' && (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#6b7280' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>💵</div>
+              <p style={{ fontWeight: 600, color: '#111' }}>Cash on Delivery</p>
+              <p style={{ fontSize: 13 }}>Pay in cash when your order is delivered.</p>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f9fafb', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
             <span style={{ fontSize: 13, color: '#6b7280' }}>Time remaining</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: '#ef4444', fontFamily: 'monospace' }}>{timeLeft}</span>
