@@ -6,6 +6,7 @@ import { assertTransition } from '../services/state-machine.js';
 import { generateQrSvg } from '../services/qr.service.js';
 import { deliverWebhook } from '../services/webhook.service.js';
 import { merchantAuth } from '../middleware/auth.js';
+import { isBanned } from '../services/fraud.service.js';
 
 const router = express.Router();
 router.use(merchantAuth);
@@ -34,7 +35,7 @@ router.get('/accounts', async (req, res) => {
 
 // Create payment session
 router.post('/', async (req, res) => {
-  const { order_id, amount, currency, customer, metadata, receiving_account_id } = req.body || {};
+  const { order_id, amount, currency, customer, metadata, receiving_account_id, method } = req.body || {};
   if (!order_id || !amount) return res.status(400).json({ error: 'order_id and amount required' });
   let amountPaise;
   try { amountPaise = toPaise(amount); } catch (e) { return res.status(400).json({ error: e.message }); }
@@ -50,6 +51,12 @@ router.post('/', async (req, res) => {
     account = data;
   }
   if (!account) return res.status(400).json({ error: 'no receiving account configured' });
+
+  // Fraud check
+  if (customer && customer.phone) {
+    const banned = await isBanned(customer.phone);
+    if (banned) return res.status(403).json({ error: 'customer is banned' });
+  }
 
   // Customer upsert (optional)
   let customerId = null;
@@ -74,7 +81,7 @@ router.post('/', async (req, res) => {
     order_id,
     amount_paise: Number(amountPaise),
     currency: currency || 'INR',
-    method: 'UPI',
+    method: method || 'UPI',
     status: 'INITIATED',
     expires_at: expiresAt,
     metadata: metadata || {},

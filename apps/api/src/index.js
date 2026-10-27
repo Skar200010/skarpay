@@ -7,7 +7,9 @@ import merchantRoutes from './routes/merchants.routes.js';
 import paymentRoutes from './routes/payments.routes.js';
 import checkoutRoutes from './routes/checkout.routes.js';
 import observerRoutes from './routes/observers.routes.js';
+import adminRoutes from './routes/admin.routes.js';
 import { startSweeper } from './services/sweeper.js';
+import { startWebhookRetry } from './services/webhook-retry.js';
 
 initSupabase({
   url: process.env.SUPABASE_URL,
@@ -30,6 +32,7 @@ app.use('/api/v1/merchants', merchantRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/checkout', checkoutRoutes);
 app.use('/api/v1/observers', observerRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[api] error:', err);
@@ -40,6 +43,8 @@ app.listen(PORT, () => {
   console.log(`[skarpay-api] listening on :${PORT}`);
   startSweeper();
   console.log('[sweeper] started');
+  startWebhookRetry();
+  console.log('[webhook-retry] started');
 });
 
 export default app;

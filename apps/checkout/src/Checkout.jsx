@@ -37,6 +37,9 @@ export default function Checkout() {
 
   const p = data.payment;
   const expired = p.expiresAt && new Date(p.expiresAt) < new Date();
+  const brand = data.merchant?.branding || {};
+  const accent = brand.accentColor || '#4f46e5';
+  const brandName = brand.name || data.merchant?.name || 'Merchant';
 
   if (status === 'SUCCESS') {
     return (
@@ -53,13 +56,13 @@ export default function Checkout() {
 
   return (
     <div style={{ padding: 40, textAlign: 'center', maxWidth: 420, margin: '0 auto' }}>
-      <h2>{data.merchant?.name || 'Merchant'}</h2>
+      <h2 style={{ color: accent }}>{brandName}</h2>
       <p style={{ fontSize: 24, fontWeight: 700 }}>₹{(p.amountPaise / 100).toFixed(2)}</p>
       <p>Order: {p.orderId}</p>
       {data.qr && <div dangerouslySetInnerHTML={{ __html: data.qr.svg }} />}
       <p style={{ fontSize: 12, color: '#666', marginTop: 12 }}>Scan with any UPI app</p>
       <p style={{ fontSize: 12, color: '#666' }}>VPA: {data.account?.vpa}</p>
-      <button onClick={async () => { await fetch(`/api/v1/checkout/${id}/cancel`, { method: 'POST' }); window.location.reload(); }} style={{ marginTop: 16 }}>
+      <button onClick={async () => { await fetch(`/api/v1/checkout/${id}/cancel`, { method: 'POST' }); window.location.reload(); }} style={{ marginTop: 16, background: accent, color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>
         Cancel
       </button>
     </div>
