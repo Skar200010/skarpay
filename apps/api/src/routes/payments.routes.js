@@ -33,6 +33,29 @@ router.get('/accounts', async (req, res) => {
   res.json({ accounts: data });
 });
 
+// Toggle VPA active/inactive
+router.put('/accounts/:id/toggle', async (req, res) => {
+  const supabase = requireAdmin();
+  const { data: acct } = await supabase.from('receiving_accounts').select('is_active').eq('id', req.params.id).eq('merchant_id', req.merchant.id).single();
+  if (!acct) return res.status(404).json({ error: 'not found' });
+  const { data, error } = await supabase.from('receiving_accounts').update({ is_active: !acct.is_active }).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ account: data });
+});
+
+// Set default VPA for merchant
+router.put('/accounts/:id/default', async (req, res) => {
+  const supabase = requireAdmin();
+  const { data: acct } = await supabase.from('receiving_accounts').select('id').eq('id', req.params.id).eq('merchant_id', req.merchant.id).single();
+  if (!acct) return res.status(404).json({ error: 'not found' });
+  // Store default in merchant branding
+  const { data: merchant } = await supabase.from('merchants').select('branding').eq('id', req.merchant.id).single();
+  const branding = merchant?.branding || {};
+  branding.defaultVpaId = req.params.id;
+  await supabase.from('merchants').update({ branding }).eq('id', req.merchant.id);
+  res.json({ defaultVpaId: req.params.id });
+});
+
 // Create payment session
 router.post('/', async (req, res) => {
   const { order_id, amount, currency, customer, metadata, receiving_account_id, method } = req.body || {};
@@ -47,8 +70,16 @@ router.post('/', async (req, res) => {
     const { data } = await supabase.from('receiving_accounts').select('*').eq('id', receiving_account_id).eq('merchant_id', req.merchant.id).single();
     account = data;
   } else {
-    const { data } = await supabase.from('receiving_accounts').select('*').eq('merchant_id', req.merchant.id).eq('is_active', true).limit(1).single();
-    account = data;
+    // Check for default VPA in branding
+    const defaultVpaId = req.merchant.branding?.defaultVpaId;
+    if (defaultVpaId) {
+      const { data } = await supabase.from('receiving_accounts').select('*').eq('id', defaultVpaId).eq('merchant_id', req.merchant.id).eq('is_active', true).single();
+      account = data;
+    }
+    if (!account) {
+      const { data } = await supabase.from('receiving_accounts').select('*').eq('merchant_id', req.merchant.id).eq('is_active', true).limit(1).single();
+      account = data;
+    }
   }
   if (!account) return res.status(400).json({ error: 'no receiving account configured' });
 

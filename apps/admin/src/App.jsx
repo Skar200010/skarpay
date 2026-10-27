@@ -197,9 +197,14 @@ export default function App() {
                     <div style={{ marginBottom: 16 }}>
                       {accounts.length === 0 && <div style={{ fontSize: 13, color: '#9ca3af' }}>No accounts yet</div>}
                       {accounts.map(a => (
-                        <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 4, fontSize: 13 }}>
+                        <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 4, fontSize: 13, opacity: a.is_active ? 1 : 0.5 }}>
                           <span><strong>{a.vpa}</strong> — {a.account_name}</span>
-                          <span style={S.badge(a.is_slot_busy ? '#f59e0b' : '#10b981')}>{a.is_slot_busy ? 'Busy' : 'Free'}</span>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span style={S.badge(a.is_slot_busy ? '#f59e0b' : '#10b981')}>{a.is_slot_busy ? 'Busy' : 'Free'}</span>
+                            <span style={S.badge(a.is_active ? '#10b981' : '#ef4444')}>{a.is_active ? 'Active' : 'Inactive'}</span>
+                            <button onClick={async () => { const key = getApiKey(selected.id); await fetch(`/api/v1/payments/accounts/${a.id}/toggle`, { method: 'PUT', headers: { 'X-API-Key': key } }); loadAccounts(selected.id, key); }} style={{ ...S.btnSm, background: a.is_active ? '#ef4444' : '#10b981', fontSize: 10, padding: '3px 8px' }}>{a.is_active ? 'Deactivate' : 'Activate'}</button>
+                            <button onClick={async () => { const key = getApiKey(selected.id); await fetch(`/api/v1/payments/accounts/${a.id}/default`, { method: 'PUT', headers: { 'X-API-Key': key } }); alert('Set as default VPA'); }} style={{ ...S.btnSm, background: '#6366f1', fontSize: 10, padding: '3px 8px' }}>Default</button>
+                          </div>
                         </div>
                       ))}
                     </div>
