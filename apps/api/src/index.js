@@ -7,6 +7,7 @@ import merchantRoutes from './routes/merchants.routes.js';
 import paymentRoutes from './routes/payments.routes.js';
 import checkoutRoutes from './routes/checkout.routes.js';
 import observerRoutes from './routes/observers.routes.js';
+import { startSweeper } from './services/sweeper.js';
 
 initSupabase({
   url: process.env.SUPABASE_URL,
@@ -37,6 +38,8 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`[skarpay-api] listening on :${PORT}`);
+  startSweeper();
+  console.log('[sweeper] started');
 });
 
 export default app;

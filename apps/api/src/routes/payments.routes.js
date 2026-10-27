@@ -88,8 +88,18 @@ router.post('/', async (req, res) => {
     await supabase.from('payment_sessions').update({ status: 'ACTIVE', activated_at: new Date().toISOString() }).eq('id', session.id);
     session.status = 'ACTIVE';
   } else {
+    // compute next queue position
+    const { data: maxRow } = await supabase
+      .from('payment_sessions')
+      .select('queue_position')
+      .eq('receiving_account_id', account.id)
+      .eq('status', 'QUEUED')
+      .order('queue_position', { ascending: false })
+      .limit(1)
+      .single();
+    const nextPos = (maxRow?.queue_position || 0) + 1;
     assertTransition('INITIATED', 'QUEUED');
-    await supabase.from('payment_sessions').update({ status: 'QUEUED', queue_position: 1 }).eq('id', session.id);
+    await supabase.from('payment_sessions').update({ status: 'QUEUED', queue_position: nextPos }).eq('id', session.id);
     session.status = 'QUEUED';
   }
 
@@ -162,6 +172,18 @@ router.post('/:id/verify', async (req, res) => {
   }
 
   res.json({ status: 'SUCCESS', utr: utr || null });
+});
+
+// Start verification window (customer clicked "Payment Done")
+router.post('/:id/processing', async (req, res) => {
+  const supabase = requireAdmin();
+  const { data: session } = await supabase.from('payment_sessions').select('*').eq('id', req.params.id).eq('merchant_id', req.merchant.id).single();
+  if (!session) return res.status(404).json({ error: 'not found' });
+  if (session.status !== 'ACTIVE') return res.status(400).json({ error: 'session not active' });
+  assertTransition('ACTIVE', 'PROCESSING');
+  const procExpires = new Date(Date.now() + 30 * 1000).toISOString();
+  await supabase.from('payment_sessions').update({ status: 'PROCESSING', processing_expires_at: procExpires }).eq('id', session.id);
+  res.json({ status: 'PROCESSING', processingExpiresAt: procExpires });
 });
 
 // Cancel

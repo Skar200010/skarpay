@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+  api:
+    build: .
+    ports:
+      - "4100:4100"
+    env_file: .env
+    restart: unless-stopped
+  admin:
+    image: nginx:alpine
+    ports:
+      - "6001:80"
+    volumes:
+      - ./apps/admin/dist:/usr/share/nginx/html:ro
+    restart: unless-stopped
+  checkout:
+    image: nginx:alpine
+    ports:
+      - "7000:80"
+    volumes:
+      - ./apps/checkout/dist:/usr/share/nginx/html:ro
+    restart: unless-stopped
