@@ -18,6 +18,7 @@ export default function App() {
   const [acctName, setAcctName] = useState('');
   const [orderId, setOrderId] = useState('ORD-1');
   const [orderAmt, setOrderAmt] = useState('499');
+  const [selectedVpa, setSelectedVpa] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [tab, setTab] = useState('merchants');
 
@@ -89,7 +90,7 @@ export default function App() {
     const r = await fetch(`${API}/payments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
-      body: JSON.stringify({ order_id: orderId, amount: orderAmt, customer: { name: 'Test', phone: '9999999999' } }),
+      body: JSON.stringify({ order_id: orderId, amount: orderAmt, receiving_account_id: selectedVpa || undefined, customer: { name: 'Test', phone: '9999999999' } }),
     });
     const j = await r.json();
     if (!r.ok) { setErr(j.error || 'failed'); return; }
@@ -207,14 +208,23 @@ export default function App() {
                     <BrandingEditor merchant={selected} apiKey={getApiKey(selected.id)} />
 
                     <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Create Payment</h3>
-                    <form onSubmit={createPayment} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                      <div style={{ flex: 1 }}>
+                    <form onSubmit={createPayment} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 120 }}>
                         <label style={S.label}>Order ID</label>
                         <input style={S.input} value={orderId} onChange={e => setOrderId(e.target.value)} />
                       </div>
                       <div style={{ width: 100 }}>
                         <label style={S.label}>Amount (₹)</label>
                         <input style={S.input} value={orderAmt} onChange={e => setOrderAmt(e.target.value)} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 180 }}>
+                        <label style={S.label}>VPA (receiving account)</label>
+                        <select style={S.input} value={selectedVpa} onChange={e => setSelectedVpa(e.target.value)}>
+                          <option value="">Auto (first available)</option>
+                          {accounts.map(a => (
+                            <option key={a.id} value={a.id}>{a.vpa} {a.is_slot_busy ? '(BUSY)' : ''}</option>
+                          ))}
+                        </select>
                       </div>
                       <button type="submit" style={S.btn}>Create & Checkout</button>
                     </form>
