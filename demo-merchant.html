@@ -16,6 +16,11 @@
     .success { background: #ecfdf5; color: #065f46; display: block !important; }
     .failed { background: #fef2f2; color: #991b1b; display: block !important; }
     .info { background: #eff6ff; color: #1e40af; display: block !important; }
+
+    /* Modal */
+    #modalOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99999; align-items: center; justify-content: center; }
+    #modalOverlay.active { display: flex; }
+    #modalFrame { width: 90%; max-width: 440px; height: 620px; border: none; border-radius: 16px; background: #fff; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
   </style>
 </head>
 <body>
@@ -23,24 +28,94 @@
     <h1>🛍️ Demo Store</h1>
     <p>Premium T-Shirt (Size M)</p>
     <div class="price">Rs. 1.00</div>
-    <button class="pay-btn" data-skarpay-pay data-order-id="ORD-DEMO-1" data-amount="1" data-currency="INR" data-api-key="mk_live_4d9dc1f0ccc434eeb140d962e3700dec055616dda00cd20f">
-      Pay Now with SkarPay
-    </button>
+    <button class="pay-btn" id="payBtn" onclick="payNow()">Pay Now with SkarPay</button>
     <div id="status"></div>
   </div>
 
-  <script src="http://localhost:4100/sdk/skarpay.js" data-api-key="mk_live_4d9dc1f0ccc434eeb140d962e3700dec055616dda00cd20f"></script>
+  <!-- Modal -->
+  <div id="modalOverlay" onclick="if(event.target===this) closeModal()">
+    <iframe id="modalFrame" src=""></iframe>
+  </div>
+
   <script>
-    window.addEventListener('skarpay:payment:success', (e) => {
-      const s = document.getElementById('status');
-      s.className = 'success';
-      s.textContent = '✅ Payment Successful! UTR: ' + (e.detail.utr || '—');
-    });
-    window.addEventListener('skarpay:payment:failed', (e) => {
-      const s = document.getElementById('status');
-      s.className = 'failed';
-      s.textContent = '❌ Payment Failed';
-    });
+    const API_KEY = 'mk_live_4d9dc1f0ccc434eeb140d962e3700dec055616dda00cd20f';
+    const API = 'http://localhost:4100';
+
+    async function payNow() {
+      const btn = document.getElementById('payBtn');
+      const status = document.getElementById('status');
+      btn.disabled = true;
+      btn.textContent = 'Creating payment...';
+      status.className = 'info';
+      status.textContent = 'Creating payment session...';
+
+      try {
+        const r = await fetch(API + '/api/v1/payments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+          body: JSON.stringify({ order_id: 'ORD-' + Date.now(), amount: '1', customer: { name: 'Demo Buyer', phone: '9999999999' } })
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'Failed');
+
+        status.textContent = 'Opening checkout...';
+        const frame = document.getElementById('modalFrame');
+        frame.src = j.checkoutUrl;
+        document.getElementById('modalOverlay').classList.add('active');
+
+        // Listen for messages from iframe
+        window.addEventListener('message', function handler(e) {
+          if (!e.data || typeof e.data !== 'object') return;
+          if (e.data.type === 'skarpay:success') {
+            status.className = 'success';
+            status.textContent = '✅ Payment Successful! UTR: ' + (e.data.payload?.amount_received ? 'Paid' : '—');
+            btn.disabled = false;
+            btn.textContent = 'Pay Now with SkarPay';
+            window.removeEventListener('message', handler);
+          }
+          if (e.data.type === 'skarpay:failed') {
+            status.className = 'failed';
+            status.textContent = '❌ Payment Failed';
+            btn.disabled = false;
+            btn.textContent = 'Pay Now with SkarPay';
+            window.removeEventListener('message', handler);
+          }
+        });
+
+        // Poll for status
+        const poll = setInterval(async () => {
+          try {
+            const s = await fetch(API + '/api/v1/payments/' + j.paymentId, { headers: { 'X-API-Key': API_KEY } });
+            const sj = await s.json();
+            if (sj.payment.status === 'SUCCESS') {
+              clearInterval(poll);
+              status.className = 'success';
+              status.textContent = '✅ Payment Successful! UTR: ' + (sj.payment.utr || '—');
+              btn.disabled = false;
+              btn.textContent = 'Pay Now with SkarPay';
+              closeModal();
+            } else if (['FAILED', 'EXPIRED', 'CANCELLED'].includes(sj.payment.status)) {
+              clearInterval(poll);
+              status.className = 'failed';
+              status.textContent = '❌ Payment ' + sj.payment.status;
+              btn.disabled = false;
+              btn.textContent = 'Pay Now with SkarPay';
+              closeModal();
+            }
+          } catch (e) {}
+        }, 3000);
+      } catch (e) {
+        status.className = 'failed';
+        status.textContent = '❌ Error: ' + e.message;
+        btn.disabled = false;
+        btn.textContent = 'Pay Now with SkarPay';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+      document.getElementById('modalFrame').src = '';
+    }
   </script>
 </body>
 </html>
