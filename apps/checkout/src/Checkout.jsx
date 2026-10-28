@@ -204,8 +204,8 @@ export default function Checkout() {
                     <div className="absolute -bottom-1 -left-1 w-3.5 h-3.5 border-b-2 border-l-2 border-primary"></div>
                     <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 border-b-2 border-r-2 border-primary"></div>
                     <div className="scanner-laser absolute inset-x-2 top-2 h-0.5 bg-gradient-to-r from-transparent via-secondary to-transparent pointer-events-none z-20"></div>
-                    <div className="relative bg-white p-3 rounded-lg">
-                      {data.qr && <div dangerouslySetInnerHTML={{ __html: data.qr.svg }} style={{ width: 160, height: 160 }} />}
+                    <div className="relative bg-white p-3 rounded-lg" style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                      {data.qr && <div dangerouslySetInnerHTML={{ __html: data.qr.svg }} style={{ width: 160, height: 160, maxWidth: '100%', maxHeight: '100%' }} />}
                     </div>
                   </div>
                   <span className="text-label-sm font-label-sm text-on-surface-variant mt-2.5 flex items-center gap-1.5">
