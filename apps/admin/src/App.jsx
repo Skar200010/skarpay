@@ -22,35 +22,70 @@ export default function App() {
   const [selectedVpa, setSelectedVpa] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [tab, setTab] = useState('merchants');
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [keyValid, setKeyValid] = useState(null); // null=unchecked, true=valid, false=invalid
 
   async function loadMerchants() {
-    const r = await fetch(`${API}/merchants`);
-    const j = await r.json();
-    setMerchants(j.merchants || []);
+    try {
+      const r = await fetch(`${API}/merchants`);
+      const j = await r.json();
+      setMerchants(j.merchants || []);
+    } catch (e) { setErr('Failed to load merchants'); }
   }
   useEffect(() => { loadMerchants(); }, []);
 
   async function createMerchant(e) {
     e.preventDefault();
     setErr('');
-    const r = await fetch(`${API}/merchants`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ business_name: name, branding: { phone, upi, name } }),
-    });
-    const j = await r.json();
-    if (!r.ok) { setErr(j.error || 'failed'); return; }
-    setCreds(j.credentials);
-    localStorage.setItem('sk_apikey_' + j.merchant.id, j.credentials.api_key);
-    setName('');
-    loadMerchants();
-    setSelected(j.merchant);
-    setApiKeyInput(j.credentials.api_key);
-    loadAccounts(j.merchant.id, j.credentials.api_key);
+    if (!name.trim()) { setErr('Business name required'); return; }
+    try {
+      const r = await fetch(`${API}/merchants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_name: name, branding: { phone, upi, name } }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setErr(j.error || 'Failed to create merchant'); return; }
+      setCreds(j.credentials);
+      localStorage.setItem('sk_apikey_' + j.merchant.id, j.credentials.api_key);
+      setName(''); setPhone(''); setUpi('');
+      await loadMerchants();
+      selectMerchant(j.merchant);
+    } catch (e) { setErr('Network error: ' + e.message); }
   }
 
-  function getApiKey(mid) {
-    return apiKeyInput || localStorage.getItem('sk_apikey_' + mid) || '';
+  async function loadAccounts(merchantId, key) {
+    if (!key) { setAccounts([]); setKeyValid(null); return; }
+    setLoadingAccounts(true);
+    setErr('');
+    try {
+      // Verify key belongs to selected merchant
+      const meRes = await fetch(`${API}/merchants/me`, { headers: { 'X-API-Key': key } });
+      if (!meRes.ok) {
+        setKeyValid(false);
+        setErr('❌ Invalid API key');
+        setAccounts([]);
+        setLoadingAccounts(false);
+        return;
+      }
+      const me = await meRes.json();
+      if (me.merchant.id !== merchantId) {
+        setKeyValid(false);
+        setErr(`⚠️ API key belongs to "${me.merchant.business_name}", not "${merchants.find(m => m.id === merchantId)?.business_name || 'selected'}". Accounts NOT loaded for security.`);
+        setAccounts([]);
+        setLoadingAccounts(false);
+        return;
+      }
+      setKeyValid(true);
+      // Load accounts
+      const r = await fetch(`${API}/payments/accounts`, { headers: { 'X-API-Key': key } });
+      const j = await r.json();
+      setAccounts(j.accounts || []);
+    } catch (e) {
+      setErr('Network error: ' + e.message);
+      setAccounts([]);
+    }
+    setLoadingAccounts(false);
   }
 
   async function selectMerchant(m) {
@@ -59,55 +94,64 @@ export default function App() {
     setApiKeyInput(key);
     setAccounts([]);
     setErr('');
+    setKeyValid(null);
     if (key) await loadAccounts(m.id, key);
-  }
-
-  async function loadAccounts(merchantId, key) {
-    if (!key) { setAccounts([]); setErr(''); return; }
-    // Verify key belongs to selected merchant
-    const meRes = await fetch(`${API}/merchants/me`, { headers: { 'X-API-Key': key } });
-    if (meRes.ok) {
-      const me = await meRes.json();
-      if (me.merchant.id !== merchantId) {
-        setErr('⚠️ API key belongs to "' + me.merchant.business_name + '", not "' + (merchants.find(m => m.id === merchantId)?.business_name || 'selected') + '". Accounts shown are for the key owner.');
-      } else {
-        setErr('');
-      }
-    }
-    const r = await fetch(`${API}/payments/accounts`, { headers: { 'X-API-Key': key } });
-    const j = await r.json();
-    setAccounts(j.accounts || []);
   }
 
   async function addAccount(e) {
     e.preventDefault();
     if (!selected) return;
-    const key = getApiKey(selected.id);
-    if (!key) { setErr('API key missing'); return; }
-    const r = await fetch(`${API}/payments/accounts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
-      body: JSON.stringify({ vpa, account_name: acctName }),
-    });
-    const j = await r.json();
-    if (!r.ok) { setErr(j.error || 'failed'); return; }
-    setVpa(''); setAcctName('');
-    loadAccounts(selected.id, key);
+    const key = apiKeyInput;
+    if (!key) { setErr('API key required'); return; }
+    if (!keyValid) { setErr('Verify API key first'); return; }
+    if (!vpa.trim()) { setErr('VPA required'); return; }
+    setErr('');
+    try {
+      const r = await fetch(`${API}/payments/accounts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
+        body: JSON.stringify({ vpa: vpa.trim(), account_name: acctName.trim() || vpa.trim() }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setErr(j.error || 'Failed to add VPA'); return; }
+      setVpa(''); setAcctName('');
+      await loadAccounts(selected.id, key);
+    } catch (e) { setErr('Network error: ' + e.message); }
+  }
+
+  async function toggleAccount(id) {
+    if (!selected || !apiKeyInput) return;
+    try {
+      await fetch(`${API}/payments/accounts/${id}/toggle`, { method: 'PUT', headers: { 'X-API-Key': apiKeyInput } });
+      await loadAccounts(selected.id, apiKeyInput);
+    } catch (e) { setErr('Toggle failed'); }
+  }
+
+  async function setDefault(id) {
+    if (!selected || !apiKeyInput) return;
+    try {
+      await fetch(`${API}/payments/accounts/${id}/default`, { method: 'PUT', headers: { 'X-API-Key': apiKeyInput } });
+      setErr('✅ Default VPA set');
+    } catch (e) { setErr('Failed'); }
   }
 
   async function createPayment(e) {
     e.preventDefault();
     if (!selected) return;
-    const key = getApiKey(selected.id);
-    if (!key) { setErr('API key missing'); return; }
-    const r = await fetch(`${API}/payments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
-      body: JSON.stringify({ order_id: orderId, amount: orderAmt, receiving_account_id: selectedVpa || undefined, customer: { name: 'Test', phone: '9999999999' } }),
-    });
-    const j = await r.json();
-    if (!r.ok) { setErr(j.error || 'failed'); return; }
-    window.open(j.checkoutUrl, '_blank');
+    const key = apiKeyInput;
+    if (!key || !keyValid) { setErr('Valid API key required'); return; }
+    if (!orderId.trim()) { setErr('Order ID required'); return; }
+    setErr('');
+    try {
+      const r = await fetch(`${API}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
+        body: JSON.stringify({ order_id: orderId, amount: orderAmt, receiving_account_id: selectedVpa || undefined, customer: { name: 'Test', phone: '9999999999' } }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setErr(j.error || 'Failed to create payment'); return; }
+      window.open(j.checkoutUrl, '_blank');
+    } catch (e) { setErr('Network error: ' + e.message); }
   }
 
   const S = {
@@ -127,10 +171,12 @@ export default function App() {
     table: { width: '100%', borderCollapse: 'collapse' },
     th: { textAlign: 'left', padding: '10px 12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase', letterSpacing: '0.05em' },
     td: { padding: '12px', fontSize: 14, borderBottom: '1px solid #f3f4f6' },
+    skeleton: { background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 6, height: 16 },
   };
 
   return (
     <div style={S.app}>
+      <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
       <div style={S.sidebar}>
         <div style={S.logo}>⚡ SkarPay</div>
         <div style={S.navItem(tab === 'merchants')} onClick={() => setTab('merchants')}>Merchants</div>
@@ -148,26 +194,26 @@ export default function App() {
             <div style={S.card}>
               <h2 style={S.h2}>Create Merchant</h2>
               <form onSubmit={createMerchant} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <label style={S.label}>Business Name</label>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label style={S.label}>Business Name *</label>
                   <input style={S.input} value={name} onChange={e => setName(e.target.value)} placeholder="Acme Store" />
                 </div>
-                <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
                   <label style={S.label}>Phone (WhatsApp)</label>
                   <input style={S.input} value={phone} onChange={e => setPhone(e.target.value)} placeholder="9876543210" />
                 </div>
-                <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
                   <label style={S.label}>UPI ID (VPA)</label>
                   <input style={S.input} value={upi} onChange={e => setUpi(e.target.value)} placeholder="merchant@okaxis" />
                 </div>
                 <button type="submit" style={S.btn}>Create Merchant</button>
               </form>
-              {err && <div style={{ color: '#ef4444', marginTop: 12, fontSize: 13 }}>{err}</div>}
+              {err && <div style={{ color: '#ef4444', marginTop: 12, fontSize: 13, padding: 8, background: '#fef2f2', borderRadius: 6 }}>{err}</div>}
               {creds && (
                 <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: 16, marginTop: 16 }}>
                   <div style={{ fontWeight: 600, color: '#065f46', marginBottom: 8 }}>⚠️ Save these credentials (shown once)</div>
-                  <div style={{ fontSize: 13, marginBottom: 4 }}><strong>API Key:</strong> <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>{creds.api_key}</code></div>
-                  <div style={{ fontSize: 13 }}><strong>Webhook Secret:</strong> <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>{creds.webhook_secret}</code></div>
+                  <div style={{ fontSize: 13, marginBottom: 4 }}><strong>API Key:</strong> <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4, wordBreak: 'break-all' }}>{creds.api_key}</code></div>
+                  <div style={{ fontSize: 13 }}><strong>Webhook Secret:</strong> <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4, wordBreak: 'break-all' }}>{creds.webhook_secret}</code></div>
                 </div>
               )}
             </div>
@@ -195,22 +241,33 @@ export default function App() {
               {selected && (
                 <div style={{ flex: 1.5 }}>
                   <div style={S.card}>
-                    <h2 style={S.h2}>{selected.business_name}</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <h2 style={{ ...S.h2, margin: 0 }}>{selected.business_name}</h2>
+                      {keyValid === true && <span style={S.badge('#10b981')}>✅ Key Valid</span>}
+                      {keyValid === false && <span style={S.badge('#ef4444')}>❌ Key Invalid</span>}
+                    </div>
+
                     <div style={{ marginBottom: 16 }}>
                       <label style={S.label}>API Key (paste if not saved)</label>
-                      <input style={S.input} value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onBlur={() => loadAccounts(selected.id, apiKeyInput)} placeholder="mk_live_..." />
+                      <input style={{ ...S.input, borderColor: keyValid === false ? '#ef4444' : keyValid === true ? '#10b981' : '#d1d5db' }} value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onBlur={() => loadAccounts(selected.id, apiKeyInput)} placeholder="mk_live_..." />
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>Press Tab after pasting to verify</div>
                     </div>
 
                     <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Receiving Accounts (VPAs)</h3>
+                    {loadingAccounts && (
+                      <div style={{ marginBottom: 12 }}>
+                        {[1, 2].map(i => <div key={i} style={{ ...S.skeleton, marginBottom: 8, width: '100%' }} />)}
+                      </div>
+                    )}
                     <form onSubmit={addAccount} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                       <input style={{ ...S.input, flex: 1 }} value={vpa} onChange={e => setVpa(e.target.value)} placeholder="yourname@okaxis" />
                       <input style={{ ...S.input, flex: 1 }} value={acctName} onChange={e => setAcctName(e.target.value)} placeholder="Account name" />
                       <button type="submit" style={S.btnSm}>Add VPA</button>
                     </form>
                     <div style={{ marginBottom: 16 }}>
-                      {accounts.length === 0 && <div style={{ fontSize: 13, color: '#9ca3af' }}>No accounts yet</div>}
+                      {accounts.length === 0 && !loadingAccounts && <div style={{ fontSize: 13, color: '#9ca3af' }}>No accounts yet (paste API key above)</div>}
                       {accounts.map(a => (
-                        <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 4, fontSize: 13, opacity: a.is_active ? 1 : 0.5 }}>
+                        <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f9fafb', borderRadius: 6, marginBottom: 4, fontSize: 13, opacity: a.is_active ? 1 : 0.5, borderLeft: `3px solid ${a.is_active ? '#10b981' : '#ef4444'}` }}>
                           <div>
                             <span><strong>{a.vpa}</strong> — {a.account_name}</span>
                             <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>ID: {a.id}</div>
@@ -218,15 +275,14 @@ export default function App() {
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <span style={S.badge(a.is_slot_busy ? '#f59e0b' : '#10b981')}>{a.is_slot_busy ? 'Busy' : 'Free'}</span>
                             <span style={S.badge(a.is_active ? '#10b981' : '#ef4444')}>{a.is_active ? 'Active' : 'Inactive'}</span>
-                            <button onClick={async () => { const key = getApiKey(selected.id); await fetch(`/api/v1/payments/accounts/${a.id}/toggle`, { method: 'PUT', headers: { 'X-API-Key': key } }); loadAccounts(selected.id, key); }} style={{ ...S.btnSm, background: a.is_active ? '#ef4444' : '#10b981', fontSize: 10, padding: '3px 8px' }}>{a.is_active ? 'Deactivate' : 'Activate'}</button>
-                            <button onClick={async () => { const key = getApiKey(selected.id); await fetch(`/api/v1/payments/accounts/${a.id}/default`, { method: 'PUT', headers: { 'X-API-Key': key } }); alert('Set as default VPA'); }} style={{ ...S.btnSm, background: '#6366f1', fontSize: 10, padding: '3px 8px' }}>Default</button>
+                            <button onClick={() => toggleAccount(a.id)} style={{ ...S.btnSm, background: a.is_active ? '#ef4444' : '#10b981', fontSize: 10, padding: '3px 8px' }}>{a.is_active ? 'Deactivate' : 'Activate'}</button>
+                            <button onClick={() => setDefault(a.id)} style={{ ...S.btnSm, background: '#6366f1', fontSize: 10, padding: '3px 8px' }}>Default</button>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Branding (White-Label)</h3>
-                    <BrandingEditor merchant={selected} apiKey={getApiKey(selected.id)} />
+                    <BrandingEditor merchant={selected} apiKey={apiKeyInput} />
 
                     <h3 style={{ fontSize: 15, fontWeight: 600, margin: '16px 0 8px' }}>Create Payment</h3>
                     <form onSubmit={createPayment} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -242,12 +298,12 @@ export default function App() {
                         <label style={S.label}>VPA (receiving account)</label>
                         <select style={S.input} value={selectedVpa} onChange={e => setSelectedVpa(e.target.value)}>
                           <option value="">Auto (first available)</option>
-                          {accounts.map(a => (
+                          {accounts.filter(a => a.is_active).map(a => (
                             <option key={a.id} value={a.id}>{a.vpa} {a.is_slot_busy ? '(BUSY)' : ''}</option>
                           ))}
                         </select>
                       </div>
-                      <button type="submit" style={S.btn}>Create & Checkout</button>
+                      <button type="submit" style={{ ...S.btn, opacity: keyValid ? 1 : 0.5 }} disabled={!keyValid}>Create & Checkout</button>
                     </form>
                   </div>
                 </div>
@@ -297,7 +353,8 @@ function CashierDock({ apiKey }) {
     <div>
       <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 4px' }}>Cashier Dock</h1>
       <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 24px' }}>Pending counter payments (cash/card)</p>
-      {pending.length === 0 && <div style={{ color: '#9ca3af', padding: 40, textAlign: 'center', background: '#fff', borderRadius: 12 }}>No pending payments</div>}
+      {!apiKey && <div style={{ color: '#ef4444', padding: 20 }}>Select a merchant and paste API key first.</div>}
+      {pending.length === 0 && apiKey && <div style={{ color: '#9ca3af', padding: 40, textAlign: 'center', background: '#fff', borderRadius: 12 }}>No pending payments</div>}
       {pending.map(s => (
         <div key={s.id} style={{ background: '#fff', borderRadius: 12, padding: 20, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
