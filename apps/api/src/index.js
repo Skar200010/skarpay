@@ -11,6 +11,7 @@ import checkoutRoutes from './routes/checkout.routes.js';
 import observerRoutes from './routes/observers.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import customerRoutes from './routes/customers.routes.js';
+import pollersRoutes from './routes/pollers.routes.js';
 import { startSweeper } from './services/sweeper.js';
 import { startWebhookRetry } from './services/webhook-retry.js';
 import { initWhatsApp } from './services/whatsapp.service.js';
@@ -41,6 +42,7 @@ app.use('/api/v1/checkout', checkoutRoutes);
 app.use('/api/v1/observers', observerRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/customers', customerRoutes);
+app.use('/api/v1/pollers', pollersRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[api] error:', err);
