@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'api_service.dart';
 
 void main() {
@@ -79,7 +81,12 @@ class _ObserverHomePageState extends State<ObserverHomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF8083FF),
-        onPressed: () {},
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const QrScannerPage()),
+          );
+        },
         child: const Icon(Icons.qr_code_scanner, color: Colors.white),
       ),
     );
@@ -199,8 +206,34 @@ class _ObserverHomePageState extends State<ObserverHomePage> {
 }
 
 // Dashboard Page
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  List<dynamic> _payments = [];
+  Map<String, dynamic>? _merchant;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    try {
+      _merchant = await ApiService.fetchMerchant();
+      _payments = await ApiService.fetchPayments();
+    } catch (e) {
+      // ignore errors
+    }
+    setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -304,9 +337,8 @@ class DashboardPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _infoRow('Merchant MID', 'Smoke Test Merchant Inc.', 'SKR_PROD_884920'),
-                _infoRow('Device Hardware', 'Pixel 8 Pro (Terminal-01)', null),
-                _infoRow('Endpoint URL', 'https://api.skarpay.io/v1', null),
+                _infoRow('Merchant', _merchant?['business_name']?.toString() ?? 'Not paired', null),
+                _infoRow('Endpoint', 'api.skarpay.io', null),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -351,8 +383,73 @@ class DashboardPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          _card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.payments, color: Color(0xFF4CD7F6), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Recent Payments (from API)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFDFE2F1))),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => _loadData(),
+                      child: const Icon(Icons.refresh, color: Color(0xFF908FA0), size: 16),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_loading)
+                  const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4CD7F6)))
+                else if (_payments.isEmpty)
+                  const Text('No payments yet. Create one from admin panel.', style: TextStyle(fontSize: 11, color: Color(0xFF908FA0)))
+                else
+                  ..._payments.take(5).map((p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(p['order_id'].toString(), style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, color: Color(0xFFDFE2F1)), overflow: TextOverflow.ellipsis),
+                        ),
+                        Text('Rs.${(p['amount_paise'] ?? 0) / 100}', style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF4EDEA3))),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: p['status'] == 'SUCCESS' ? const Color(0xFF4EDEA3).withValues(alpha: 0.1) : const Color(0xFFFFB4AB).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(p['status']?.toString() ?? '', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: FontWeight.w600, color: p['status'] == 'SUCCESS' ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB))),
+                        ),
+                      ],
+                    ),
+                  )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           GestureDetector(
-            onTap: () {},
+            onTap: () async {
+              try {
+                final result = await ApiService.sendObservation(
+                  rawText: 'Rs.499.00 credited to A/c XX1234. UTR 987654321098. Ref ORD-1',
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Result: $result'), backgroundColor: const Color(0xFF4EDEA3)),
+                  );
+                }
+                _loadData();
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFFFB4AB)),
+                  );
+                }
+              }
+            },
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -468,8 +565,32 @@ class DashboardPage extends StatelessWidget {
 }
 
 // Live Events Page
-class LiveEventsPage extends StatelessWidget {
+class LiveEventsPage extends StatefulWidget {
   const LiveEventsPage({super.key});
+
+  @override
+  State<LiveEventsPage> createState() => _LiveEventsPageState();
+}
+
+class _LiveEventsPageState extends State<LiveEventsPage> {
+  List<dynamic> _payments = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    try {
+      _payments = await ApiService.fetchPayments();
+    } catch (e) {
+      // ignore
+    }
+    setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -487,32 +608,78 @@ class LiveEventsPage extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Text('Live Ingestion Telemetry', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFDFE2F1))),
                     const Spacer(),
-                    const Text('AUTO-REFRESH (1s)', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, color: Color(0xFF908FA0))),
+                    GestureDetector(
+                      onTap: () => _loadData(),
+                      child: const Icon(Icons.refresh, color: Color(0xFF908FA0), size: 16),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                _eventCard('SMS INGEST', 'HDFCBK', 'Rs.4,999.00 credited to A/c XX1234. UTR 987654321098', '₹4,999.00', 'UTR: 987654321098', 'SYNCED (200)', const Color(0xFFC0C1FF), '12s ago'),
-                const SizedBox(height: 8),
-                _eventCard('PUSH NOTIF', 'com.axis.mobile', 'UPI payment received: ₹499.00 from smoketest@axis', '₹499.00', 'UPI: P2M', 'SYNCED (200)', const Color(0xFF4CD7F6), '2m ago'),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFF0A0E18).withValues(alpha: 0.9), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF4EDEA3).withValues(alpha: 0.2))),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.description, color: Color(0xFF4EDEA3), size: 16),
-                      const SizedBox(width: 8),
-                      const Expanded(child: Text('Anti-Replay Verification OK', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFFDFE2F1)))),
-                      const Text('<60s clock drift', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, color: Color(0xFF908FA0))),
-                    ],
-                  ),
-                ),
+                if (_loading)
+                  const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4CD7F6)))
+                else if (_payments.isEmpty)
+                  const Text('No payments yet. Create one from admin panel.', style: TextStyle(fontSize: 11, color: Color(0xFF908FA0)))
+                else
+                  ..._payments.take(10).map((p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: const Color(0xFF171B26), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.2))),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: const Color(0xFFC0C1FF).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFC0C1FF).withValues(alpha: 0.2))),
+                                child: Text(p['method']?.toString() ?? 'SMS', style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: FontWeight.w500, color: Color(0xFFC0C1FF))),
+                              ),
+                              Text(p['created_at'].toString().substring(11, 19), style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, color: Color(0xFF908FA0))),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text('Rs.${(p['amount_paise'] ?? 0) / 100} ${p['status'] == 'SUCCESS' ? 'credited' : 'pending'} • ${p['order_id']}', style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, color: Color(0xFFDFE2F1))),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('UTR: ${p['utr'] ?? 'PENDING'}', style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 9, color: Color(0xFF908FA0))),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(color: p['status'] == 'SUCCESS' ? const Color(0xFF4EDEA3).withValues(alpha: 0.1) : const Color(0xFFFFB4AB).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                                child: Text(p['status']?.toString() ?? '', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 9, fontWeight: FontWeight.w600, color: p['status'] == 'SUCCESS' ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB))),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  )),
               ],
             ),
           ),
           const SizedBox(height: 12),
           GestureDetector(
-            onTap: () {},
+            onTap: () async {
+              try {
+                final result = await ApiService.sendObservation(
+                  rawText: 'Rs.499.00 credited to A/c XX1234. UTR 987654321098. Ref ORD-1',
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Result: $result'), backgroundColor: const Color(0xFF4EDEA3)),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFFFB4AB)),
+                  );
+                }
+              }
+            },
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -545,60 +712,6 @@ class LiveEventsPage extends StatelessWidget {
     );
   }
 
-  Widget _eventCard(String type, String source, String text, String amount, String utr, String status, Color color, String time) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFF171B26), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.2))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: color.withValues(alpha: 0.2))),
-                child: Text(type, style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: FontWeight.w500, color: color)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(source, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFDFE2F1)), overflow: TextOverflow.ellipsis)),
-              const SizedBox(width: 8),
-              Text(time, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, color: Color(0xFF908FA0))),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: const Color(0xFF0A0E18), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.2))),
-            child: Text(text, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, color: Color(0xFFDFE2F1), height: 1.5)),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(amount, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF4EDEA3))),
-                  const SizedBox(width: 12),
-                  Text(utr, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 11, color: Color(0xFF908FA0))),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: const Color(0xFF4EDEA3).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.done_all, color: Color(0xFF4EDEA3), size: 12),
-                    const SizedBox(width: 2),
-                    Text(status, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, color: Color(0xFF4EDEA3))),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // Permissions Page
@@ -636,7 +749,6 @@ class PermissionsPage extends StatelessWidget {
               children: [
                 _infoRow('Merchant MID', 'Smoke Test Merchant Inc.', 'SKR_PROD_884920'),
                 _infoRow('Device Hardware', 'Pixel 8 Pro (Terminal-01)', null),
-                _infoRow('Endpoint URL', 'https://api.skarpay.io/v1', null),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -771,7 +883,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  final _urlController = TextEditingController(text: 'http://10.0.2.2:4100');
+  final _urlController = TextEditingController(text: 'http://192.168.0.103:4100');
   final _tokenController = TextEditingController();
   final _nameController = TextEditingController(text: 'My Phone');
   bool _isPaired = false;
@@ -959,6 +1071,133 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// QR Scanner Page
+class QrScannerPage extends StatefulWidget {
+  const QrScannerPage({super.key});
+
+  @override
+  State<QrScannerPage> createState() => _QrScannerPageState();
+}
+
+class _QrScannerPageState extends State<QrScannerPage> {
+  final MobileScannerController _controller = MobileScannerController();
+  bool _scanned = false;
+  String _status = 'Point camera at SkarPay pairing QR code';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_scanned) return;
+    final barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+
+    final raw = barcodes.first.rawValue;
+    if (raw == null || raw.isEmpty) return;
+
+    _scanned = true;
+    _handleQr(raw);
+  }
+
+  Future<void> _handleQr(String raw) async {
+    setState(() => _status = 'Processing QR...');
+    try {
+      String baseUrl = '';
+      String token = '';
+      String merchantId = '';
+
+      if (raw.startsWith('{')) {
+        final data = jsonDecode(raw);
+        baseUrl = data['baseUrl'] ?? data['base_url'] ?? data['url'] ?? '';
+        token = data['token'] ?? data['enrollmentToken'] ?? data['enrollment_token'] ?? '';
+        merchantId = data['merchantId'] ?? data['merchant_id'] ?? '';
+      } else if (raw.contains('://')) {
+        final uri = Uri.parse(raw);
+        baseUrl = '${uri.scheme}://${uri.host}${uri.port != 0 ? ':${uri.port}' : ''}';
+        token = uri.queryParameters['token'] ?? uri.queryParameters['enrollmentToken'] ?? '';
+        merchantId = uri.queryParameters['merchant'] ?? uri.queryParameters['merchantId'] ?? '';
+      }
+
+      if (baseUrl.isEmpty) {
+        setState(() => _status = 'Invalid QR: no base URL found');
+        _scanned = false;
+        return;
+      }
+
+      await ApiService.setBaseUrl(baseUrl);
+      if (merchantId.isNotEmpty) await ApiService.setMerchantId(merchantId);
+
+      final deviceName = 'My Phone';
+      await ApiService.pair(
+        baseUrl: baseUrl,
+        enrollmentToken: token.isNotEmpty ? token : 'test',
+        deviceName: deviceName,
+      );
+
+      setState(() => _status = 'Paired successfully!');
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() => _status = 'Error: $e');
+      _scanned = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F131D),
+      appBar: AppBar(
+        title: const Text('Scan Pairing QR', style: TextStyle(fontFamily: 'Plus Jakarta Sans', fontWeight: FontWeight.w600)),
+        backgroundColor: const Color(0xFF171B26),
+        foregroundColor: const Color(0xFFDFE2F1),
+      ),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: _onDetect,
+          ),
+          Positioned(
+            bottom: 40,
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF171B26).withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_status, style: const TextStyle(fontSize: 13, color: Color(0xFFDFE2F1)), textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  if (_scanned)
+                    const CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4EDEA3)),
+                ],
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF4CD7F6), width: 2),
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
         ],

@@ -130,6 +130,36 @@ class ApiService {
     }
   }
 
+  // Fetch payments for merchant
+  static Future<List<dynamic>> fetchPayments() async {
+    final baseUrl = await getBaseUrl();
+    final url = '$baseUrl/api/v1/payments?limit=20';
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['payments'] ?? [];
+    }
+    return [];
+  }
+
+  // Fetch merchant info
+  static Future<Map<String, dynamic>?> fetchMerchant() async {
+    final baseUrl = await getBaseUrl();
+    final merchantId = await getMerchantId();
+    if (merchantId == null) return null;
+    final response = await http.get(Uri.parse('$baseUrl/api/v1/merchants/$merchantId'));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['merchant'];
+    }
+    return null;
+  }
+
+  // Fetch VPAs
+  static Future<List<dynamic>> fetchVpas() async {
+    return [];
+  }
+
   static String _hmacSha256(String key, String data) {
     // Simple HMAC - in production use crypto package
     // For now, return a placeholder

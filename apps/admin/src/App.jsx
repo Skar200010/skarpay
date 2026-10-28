@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import BrandingEditor from './BrandingEditor.jsx';
 import PaymentsView from './PaymentsView.jsx';
 import SettingsView from './SettingsView.jsx';
+import PairingQR from './PairingQR.jsx';
 
 const API = '/api/v1';
 
@@ -411,6 +412,8 @@ export default function App() {
                       <span className="material-symbols-outlined text-primary text-[18px]">palette</span>
                       <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Customer Checkout Sheet Styling</h3>
                     </div>
+                    <PairingQR merchant={selected} apiKey={apiKeyInput} />
+
                     <BrandingEditor merchant={selected} apiKey={apiKeyInput} />
                   </div>
                 )}

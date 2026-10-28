@@ -40,21 +40,25 @@ router.post('/sms', async (req, res) => {
   });
 
   // Match to active session
-  if (account) {
-    const { data: session } = await supabase
-      .from('payment_sessions')
-      .select('*')
-      .eq('receiving_account_id', account.id)
-      .eq('amount_paise', parsed.amountPaise)
-      .eq('status', 'ACTIVE')
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .single();
+  // If no specific account, search across all active sessions with matching amount
+  let sessionQuery = supabase
+    .from('payment_sessions')
+    .select('*')
+    .eq('amount_paise', parsed.amountPaise)
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: true })
+    .limit(1);
 
-    if (session) {
+  if (account) {
+    sessionQuery = sessionQuery.eq('receiving_account_id', account.id);
+  }
+
+  const { data: session } = await sessionQuery.single();
+
+  if (session) {
       assertTransition('ACTIVE', 'SUCCESS');
       await supabase.from('payment_sessions').update({ status: 'SUCCESS', utr: parsed.utr }).eq('id', session.id);
-      await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
+      if (account) await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
       await supabase.from('audit_logs').insert({ session_id: session.id, event_type: 'OBSERVER_MATCH', details: { source, utr: parsed.utr, amount: parsed.amountPaise } });
 
       // webhook
@@ -82,7 +86,6 @@ router.post('/sms', async (req, res) => {
 
       return res.json({ matched: true, sessionId: session.id, status: 'SUCCESS' });
     }
-  }
 
   res.json({ matched: false, parsed });
 });
@@ -115,11 +118,13 @@ router.post('/gmail', async (req, res) => {
     cluster_hash: clusterHash,
   });
   if (account) {
-    const { data: session } = await supabase.from('payment_sessions').select('*').eq('receiving_account_id', account.id).eq('amount_paise', parsed.amountPaise).eq('status', 'ACTIVE').order('created_at', { ascending: true }).limit(1).single();
+    let sq = supabase.from('payment_sessions').select('*').eq('amount_paise', parsed.amountPaise).eq('status', 'ACTIVE').order('created_at', { ascending: true }).limit(1);
+    if (account) sq = sq.eq('receiving_account_id', account.id);
+    const { data: session } = await sq.single();
     if (session) {
       assertTransition('ACTIVE', 'SUCCESS');
       await supabase.from('payment_sessions').update({ status: 'SUCCESS', utr: parsed.utr }).eq('id', session.id);
-      await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
+      if (account) await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
       await supabase.from('audit_logs').insert({ session_id: session.id, event_type: 'OBSERVER_MATCH', details: { source: 'GMAIL', utr: parsed.utr } });
       return res.json({ matched: true, sessionId: session.id, status: 'SUCCESS' });
     }
