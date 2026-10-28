@@ -1,3 +1,14 @@
-* { box-sizing: border-box; }
-body { margin: 0; background: #f7f7f9; color: #111; }
-code { background: #eee; padding: 2px 6px; border-radius: 4px; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 18;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #070a10; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #263047; border-radius: 2px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #4b5570; }

@@ -26,27 +26,6 @@ export default function App() {
   const [payments, setPayments] = useState([]);
   const [showProvision, setShowProvision] = useState(false);
 
-  const C = {
-    bg: '#080b12',
-    surfaceLowest: '#070a10',
-    surfaceLow: '#0b0f19',
-    surface: '#111624',
-    surfaceHigh: '#181f31',
-    surfaceHighest: '#222a40',
-    onSurface: '#e2e7f5',
-    onSurfaceVariant: '#8e99b5',
-    outline: '#4b5570',
-    outlineVariant: '#263047',
-    primary: '#c0c1ff',
-    primaryContainer: '#8083ff',
-    inversePrimary: '#494bd6',
-    secondary: '#4cd7f6',
-    secondaryContainer: '#03b5d3',
-    tertiary: '#4edea3',
-    error: '#ffb4ab',
-    errorContainer: '#93000a',
-  };
-
   async function loadMerchants() {
     try {
       const r = await fetch(`${API}/merchants`);
@@ -87,21 +66,25 @@ export default function App() {
 
   async function loadAccounts(merchantId, key) {
     if (!key) { setAccounts([]); setKeyValid(null); return; }
+    setLoadingAccounts(true);
+    setErr('');
     try {
       const meRes = await fetch(`${API}/merchants/me`, { headers: { 'X-API-Key': key } });
-      if (!meRes.ok) { setKeyValid(false); setErr('Invalid API key'); setAccounts([]); return; }
+      if (!meRes.ok) { setKeyValid(false); setErr('Invalid API key'); setAccounts([]); setLoadingAccounts(false); return; }
       const me = await meRes.json();
       if (me.merchant.id !== merchantId) {
         setKeyValid(false);
         setErr(`⚠️ API key belongs to "${me.merchant.business_name}", not selected merchant.`);
         setAccounts([]);
+        setLoadingAccounts(false);
         return;
       }
       setKeyValid(true);
       const r = await fetch(`${API}/payments/accounts`, { headers: { 'X-API-Key': key } });
       const j = await r.json();
       setAccounts(j.accounts || []);
-    } catch (e) { setErr('Network error: ' + e.message); setAccounts([]); }
+    } catch (e) { setErr('Network error'); setAccounts([]); }
+    setLoadingAccounts(false);
   }
 
   async function selectMerchant(m) {
@@ -163,278 +146,272 @@ export default function App() {
     } catch (e) { setErr('Network error'); }
   }
 
-  const mono = { fontFamily: 'JetBrains Mono, monospace' };
-  const sans = { fontFamily: 'Inter, sans-serif' };
-
   return (
-    <div style={{ background: C.bg, color: C.onSurface, minHeight: '100vh', ...sans, fontSize: 12 }}>
+    <div className="bg-[#080b12] text-on-surface antialiased min-h-screen font-sans text-xs selection:bg-primary/20 overflow-x-hidden flex flex-col">
       {/* Top Bar */}
-      <header style={{ height: 48, background: C.surfaceLowest, borderBottom: `1px solid ${C.outlineVariant}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', position: 'sticky', top: 0, zIndex: 30 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #494bd6, #8083ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(73,75,214,0.4)' }}>
-            <span style={{ color: '#fff', fontSize: 14 }}>⚡</span>
+      <header className="h-12 bg-surface-container-lowest border-b border-outline-variant/60 flex items-center justify-between px-3.5 shrink-0 z-30 sticky top-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 pr-3 border-r border-outline-variant/50">
+            <div className="w-6 h-6 rounded bg-gradient-to-tr from-inverse-primary to-primary-container flex items-center justify-center shadow-sm ring-1 ring-primary/30">
+              <span className="material-symbols-outlined text-white text-[15px]">bolt</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-headline font-bold text-sm tracking-tight text-white">SkarPay</span>
+              <span className="text-[10px] font-mono text-primary font-semibold tracking-wider bg-primary/10 px-1 py-0.5 rounded border border-primary/20">OPS:CONSOLE</span>
+            </div>
           </div>
-          <span style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 14, color: '#fff', letterSpacing: '-0.02em' }}>SkarPay</span>
-          <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: C.primary, fontWeight: 600, background: `${C.primary}15`, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.primary}30` }}>OPS:CONSOLE</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 6, background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, cursor: 'pointer' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.tertiary, boxShadow: `0 0 8px ${C.tertiary}80` }}></span>
-            <span style={{ ...mono, fontSize: 11, color: C.onSurface, fontWeight: 500 }}>env:production</span>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface-container-low border border-outline-variant/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-tertiary shadow-[0_0_8px_rgba(78,222,163,0.8)]"></span>
+            <span className="font-mono text-[11px] text-on-surface font-medium">env:production</span>
+          </div>
+          <div className="hidden md:flex items-center gap-4 text-[11px] pl-2 font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="text-on-surface-variant text-[10px] uppercase tracking-wider">MERCHANTS:</span>
+              <span className="text-tertiary font-medium">{merchants.length}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-on-surface-variant text-[10px] uppercase tracking-wider">VPAs:</span>
+              <span className="text-secondary font-medium">{accounts.length}</span>
+            </div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button style={{ height: 28, padding: '0 10px', borderRadius: 6, background: C.surface, border: `1px solid ${C.outlineVariant}`, color: C.onSurface, ...mono, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-            <span style={{ color: C.tertiary }}>⟳</span> Resync
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowProvision(!showProvision)} className="h-7 px-3 rounded bg-gradient-to-r from-inverse-primary to-primary-container text-white font-mono font-semibold text-[11px] flex items-center gap-1.5 shadow-sm hover:brightness-110 active:scale-[0.98] transition-all">
+            <span className="material-symbols-outlined text-[14px]">add</span>
+            <span>Register Merchant</span>
           </button>
-          <button style={{ height: 28, padding: '0 12px', borderRadius: 6, background: `linear-gradient(90deg, ${C.inversePrimary}, ${C.primaryContainer})`, color: '#fff', ...mono, fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', border: 'none' }}>
-            ▶ Run Test
-          </button>
-          <div style={{ width: 24, height: 24, borderRadius: 6, background: C.primaryContainer, color: '#fff', ...mono, fontWeight: 700, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>SA</div>
+          <div className="w-6 h-6 rounded bg-primary-container text-white font-mono font-bold text-[10px] flex items-center justify-center ring-1 ring-primary/40">SA</div>
         </div>
       </header>
 
-      {/* 3-column layout */}
-      <div style={{ display: 'flex', height: 'calc(100vh - 48px)', overflow: 'hidden' }}>
-        {/* Column 1: Merchant List */}
-        <aside style={{ width: 320, flexShrink: 0, background: C.surfaceLowest, borderRight: `1px solid ${C.outlineVariant}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: 12, borderBottom: `1px solid ${C.outlineVariant}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: `${C.surfaceLow}60` }}>
+      {/* Security Banner */}
+      {err && err.includes('mismatch') && (
+        <div className="bg-error-container/20 border-b border-error/40 px-3.5 py-1.5 flex items-center gap-2 text-[11px]">
+          <span className="material-symbols-outlined text-error text-[14px]">warning</span>
+          <span className="font-mono text-on-surface"><strong className="text-error">SECURITY:</strong> {err}</span>
+        </div>
+      )}
+
+      {/* Main 3-column layout */}
+      <div className="flex-1 flex overflow-hidden w-full">
+        {/* Left Rail: Merchants */}
+        <aside className="w-80 shrink-0 bg-surface-container-lowest border-r border-outline-variant/50 flex flex-col h-[calc(100vh-3rem)]">
+          <div className="p-3 border-b border-outline-variant/40 flex items-center justify-between bg-surface-container-low/40">
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 12, color: '#fff', margin: 0 }}>Merchants Registry</h2>
-                <span style={{ ...mono, fontSize: 10, color: C.primary, background: `${C.primary}15`, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.primary}30` }}>{merchants.length} nodes</span>
+              <div className="flex items-center gap-1.5">
+                <h2 className="font-headline font-bold text-white text-xs tracking-tight">Merchants Registry</h2>
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-primary/10 text-primary border border-primary/20">{merchants.length} nodes</span>
               </div>
-              <p style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, margin: '2px 0 0' }}>Dual-redundant UPI routing</p>
+              <p className="text-[10px] font-mono text-on-surface-variant mt-0.5">UPI routing nodes</p>
             </div>
-            <button onClick={() => setShowProvision(!showProvision)} style={{ height: 24, padding: '0 8px', borderRadius: 4, background: C.surfaceHigh, border: `1px solid ${C.primary}50`, color: C.primary, ...mono, fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              + Register
-            </button>
           </div>
 
-          {/* Quick provision drawer */}
+          {/* Quick provision */}
           {showProvision && (
-            <div style={{ padding: 12, background: C.surfaceLow, borderBottom: `1px solid ${C.outlineVariant}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 6, borderBottom: `1px solid ${C.outlineVariant}` }}>
-                <span style={{ ...mono, fontSize: 11, color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ color: C.primary }}>⊕</span> POST /v2/merchants
-                </span>
-                <button onClick={() => setShowProvision(false)} style={{ background: 'none', border: 'none', color: C.outline, cursor: 'pointer', fontSize: 14 }}>✕</button>
+            <div className="bg-surface-container-low border-b border-outline-variant/50 p-3 space-y-2 text-[11px]">
+              <div className="flex items-center justify-between pb-1 border-b border-outline-variant/30">
+                <span className="font-mono text-white font-semibold flex items-center gap-1"><span className="material-symbols-outlined text-[14px] text-primary">add_business</span> POST /v2/merchants</span>
+                <button className="text-outline hover:text-white" onClick={() => setShowProvision(false)}><span className="material-symbols-outlined text-[14px]">close</span></button>
               </div>
               <div>
-                <label style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, display: 'block', marginBottom: 2 }}>Business Name *</label>
-                <input style={{ width: '100%', background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: '4px 8px', ...mono, fontSize: 11, color: '#fff', outline: 'none' }} placeholder="Acme Store" value={name} onChange={e => setName(e.target.value)} />
+                <label className="block text-[10px] font-mono text-on-surface-variant mb-0.5">Business Name *</label>
+                <input className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded px-2 py-1 font-sans text-xs text-white" placeholder="Acme Store" value={name} onChange={e => setName(e.target.value)} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, display: 'block', marginBottom: 2 }}>WhatsApp / Mobile</label>
-                  <input style={{ width: '100%', background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: '4px 8px', ...mono, fontSize: 10, color: '#fff', outline: 'none' }} placeholder="+91 9876543210" value={phone} onChange={e => setPhone(e.target.value)} />
+                  <label className="block text-[10px] font-mono text-on-surface-variant mb-0.5">WhatsApp / Mobile</label>
+                  <input className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded px-2 py-1 font-mono text-[10px] text-white" placeholder="+91 9876543210" value={phone} onChange={e => setPhone(e.target.value)} />
                 </div>
                 <div>
-                  <label style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, display: 'block', marginBottom: 2 }}>Primary VPA</label>
-                  <input style={{ width: '100%', background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: '4px 8px', ...mono, fontSize: 10, color: '#fff', outline: 'none' }} placeholder="merchant@okaxis" value={upi} onChange={e => setUpi(e.target.value)} />
+                  <label className="block text-[10px] font-mono text-on-surface-variant mb-0.5">Primary VPA</label>
+                  <input className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded px-2 py-1 font-mono text-[10px] text-white" placeholder="merchant@okaxis" value={upi} onChange={e => setUpi(e.target.value)} />
                 </div>
               </div>
-              <button onClick={createMerchant} style={{ width: '100%', height: 24, borderRadius: 4, background: C.primary, color: C.surfaceLowest, ...mono, fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                ⊕ Provision Node
+              <button onClick={createMerchant} className="w-full h-6 rounded bg-primary text-on-primary font-mono text-[10px] font-bold tracking-wide hover:brightness-110 flex items-center justify-center gap-1 transition-all">
+                <span className="material-symbols-outlined text-[12px]">save</span> Provision Node
               </button>
-              {err && <div style={{ ...mono, fontSize: 10, color: C.error, padding: 4 }}>{err}</div>}
+              {err && <div className="font-mono text-[10px] text-error p-1">{err}</div>}
               {creds && (
-                <div style={{ background: `${C.tertiary}15`, border: `1px solid ${C.tertiary}40`, borderRadius: 4, padding: 8, ...mono, fontSize: 10 }}>
-                  <div style={{ color: C.tertiary, fontWeight: 600, marginBottom: 4 }}>⚠️ Save credentials (shown once)</div>
-                  <div style={{ color: C.onSurface, wordBreak: 'break-all' }}>API: {creds.api_key}</div>
-                  <div style={{ color: C.onSurface, wordBreak: 'break-all' }}>Secret: {creds.webhook_secret}</div>
+                <div className="bg-tertiary/10 border border-tertiary/30 rounded p-2 font-mono text-[10px]">
+                  <div className="text-tertiary font-semibold mb-1">⚠️ Save credentials (shown once)</div>
+                  <div className="text-on-surface break-all">API: {creds.api_key}</div>
+                  <div className="text-on-surface break-all">Secret: {creds.webhook_secret}</div>
                 </div>
               )}
             </div>
           )}
 
           {/* Merchant list */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-outline-variant/20">
             {merchants.map(m => (
-              <div key={m.id} onClick={() => selectMerchant(m)} style={{ padding: 10, borderBottom: `1px solid ${C.outlineVariant}30`, cursor: 'pointer', background: selected?.id === m.id ? `${C.surfaceHigh}b0` : 'transparent', borderLeft: selected?.id === m.id ? `2px solid ${C.primary}` : '2px solid transparent', transition: 'background 0.15s' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 4, background: `${C.primary}20`, border: `1px solid ${C.primary}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', ...mono, fontWeight: 700, fontSize: 10, color: C.primary, flexShrink: 0 }}>
+              <div key={m.id} onClick={() => selectMerchant(m)} className={`p-2.5 cursor-pointer transition-colors ${selected?.id === m.id ? 'bg-surface-container-high/70 border-l-2 border-primary' : 'bg-surface-container-lowest hover:bg-surface-container-low'}`}>
+                <div className="flex items-start justify-between gap-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded bg-primary/20 text-primary border border-primary/40 flex items-center justify-center font-mono font-bold text-[10px] shrink-0">
                       {m.business_name.slice(0, 2).toUpperCase()}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <span style={{ fontWeight: 600, fontSize: 11, color: '#fff', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.business_name}</span>
-                      <span style={{ ...mono, fontSize: 9, color: C.onSurfaceVariant }}>id: {m.id.slice(0, 8)}...</span>
+                    <div className="truncate">
+                      <span className="font-semibold text-white truncate block text-[11px]">{m.business_name}</span>
+                      <span className="font-mono text-[10px] text-on-surface-variant">id: {m.id.slice(0, 8)}...</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
-                    <span style={{ ...mono, fontSize: 9, color: C.tertiary, background: `${C.tertiary}15`, padding: '1px 6px', borderRadius: 8, border: `1px solid ${C.tertiary}30` }}>ACTIVE</span>
-                  </div>
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-semibold bg-tertiary/10 text-tertiary border border-tertiary/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span> ACTIVE
+                  </span>
                 </div>
-                <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.outlineVariant}20`, display: 'flex', justifyContent: 'space-between', ...mono, fontSize: 9, color: C.onSurfaceVariant }}>
+                <div className="mt-1.5 pt-1.5 border-t border-outline-variant/20 flex items-center justify-between text-[10px] font-mono text-on-surface-variant">
                   <span>{accounts.length || 0} VPAs</span>
-                  <span style={{ color: C.tertiary }}>₹0 settled</span>
                 </div>
               </div>
             ))}
-            {merchants.length === 0 && <div style={{ padding: 20, textAlign: 'center', ...mono, fontSize: 11, color: C.onSurfaceVariant }}>No merchants yet</div>}
-          </div>
-
-          <div style={{ padding: 8, borderTop: `1px solid ${C.outlineVariant}`, display: 'flex', justifyContent: 'space-between', ...mono, fontSize: 9, color: C.onSurfaceVariant }}>
-            <span>Showing {merchants.length} merchants</span>
+            {merchants.length === 0 && <div className="p-4 text-center font-mono text-[11px] text-on-surface-variant">No merchants yet</div>}
           </div>
         </aside>
 
-        {/* Column 2: Merchant Detail */}
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0a0d15', overflowY: 'auto', minWidth: 0 }}>
+        {/* Center: Merchant Detail */}
+        <main className="flex-1 flex flex-col min-w-0 bg-[#0a0d15] overflow-y-auto custom-scrollbar">
           {selected ? (
             <>
-              {/* Merchant header */}
-              <div style={{ padding: 16, borderBottom: `1px solid ${C.outlineVariant}`, background: `${C.surfaceLowest}cc`, position: 'sticky', top: 0, zIndex: 20, backdropFilter: 'blur(8px)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 6, background: C.surfaceHigh, border: `1px solid ${C.primary}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.primary, ...mono, fontWeight: 700, fontSize: 12 }}>
+              <div className="p-4 bg-surface-container-lowest/80 border-b border-outline-variant/40 sticky top-0 backdrop-blur-md z-20">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded bg-surface-container-high border border-primary/40 flex items-center justify-center text-primary font-mono font-bold text-sm shadow-inner">
                       {selected.business_name.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <h1 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 16, color: '#fff', margin: 0 }}>{selected.business_name}</h1>
-                        <span style={{ ...mono, fontSize: 9, color: C.tertiary, background: `${C.tertiary}15`, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.tertiary}30` }}>ONLINE</span>
+                      <div className="flex items-center gap-2">
+                        <h1 className="font-headline font-bold text-base text-white tracking-tight">{selected.business_name}</h1>
+                        <span className="px-2 py-0.2 rounded text-[10px] font-mono bg-tertiary/10 text-tertiary border border-tertiary/30">ONLINE</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...mono, fontSize: 10, color: C.onSurfaceVariant, marginTop: 2 }}>
-                        <span>UUID: <span style={{ color: '#fff' }}>{selected.id}</span></span>
-                        <span style={{ color: C.outline }}>|</span>
-                        <span>Tier: <span style={{ color: C.primary }}>Standard</span></span>
+                      <div className="flex items-center gap-3 text-[11px] font-mono text-on-surface-variant mt-0.5">
+                        <span>UUID: <span className="text-white select-all">{selected.id}</span></span>
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button style={{ height: 28, padding: '0 10px', borderRadius: 4, background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, color: C.onSurface, ...mono, fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>Sync</button>
-                    <button style={{ height: 28, padding: '0 10px', borderRadius: 4, background: `${C.errorContainer}30`, border: `1px solid ${C.error}40`, color: C.error, ...mono, fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>Deactivate</button>
-                  </div>
                 </div>
                 {/* Tabs */}
-                <div style={{ display: 'flex', gap: 4, marginTop: 12, borderBottom: `1px solid ${C.outlineVariant}`, paddingBottom: 0 }}>
+                <div className="flex items-center gap-1 mt-3 border-b border-outline-variant/40">
                   {[
-                    { id: 'credentials', label: 'Credentials & VPAs', icon: '🔑' },
-                    { id: 'branding', label: 'Branding', icon: '🎨' },
-                    { id: 'payments', label: 'Payments', icon: '💳' },
-                    { id: 'settings', label: 'Settings', icon: '⚙️' },
+                    { id: 'credentials', label: 'Credentials & VPAs', icon: 'key' },
+                    { id: 'branding', label: 'Branding', icon: 'palette' },
+                    { id: 'payments', label: 'Payments', icon: 'payments' },
+                    { id: 'settings', label: 'Settings', icon: 'settings' },
                   ].map(t => (
-                    <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: '6px 12px', ...mono, fontSize: 10, fontWeight: tab === t.id ? 600 : 400, color: tab === t.id ? C.primary : C.onSurfaceVariant, background: 'transparent', border: 'none', borderBottom: tab === t.id ? `2px solid ${C.primary}` : '2px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {t.icon} {t.label}
+                    <button key={t.id} onClick={() => setTab(t.id)} className={`px-3 py-1.5 font-mono text-xs flex items-center gap-1.5 border-b-2 transition-colors ${tab === t.id ? 'font-semibold text-primary border-primary' : 'text-on-surface-variant hover:text-white border-transparent'}`}>
+                      <span className="material-symbols-outlined text-[14px]">{t.icon}</span> {t.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {err && <div style={{ ...mono, fontSize: 11, color: C.error, background: `${C.errorContainer}20`, border: `1px solid ${C.error}40`, borderRadius: 4, padding: 8 }}>{err}</div>}
+              <div className="p-4 space-y-4">
+                {err && <div className="font-mono text-[11px] text-error bg-error-container/20 border border-error/40 rounded p-2">{err}</div>}
 
                 {tab === 'credentials' && (
                   <>
-                    {/* API Key Vault */}
-                    <div style={{ background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 8, padding: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8, borderBottom: `1px solid ${C.outlineVariant}`, marginBottom: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ color: C.primary, fontSize: 16 }}>🔒</span>
-                          <h3 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Merchant Secret & API Key Vault</h3>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...mono, fontSize: 9 }}>
-                          <span style={{ color: C.tertiary, display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.tertiary }}></span> Verified
-                          </span>
-                        </div>
+                    <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
+                      <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
+                        <span className="material-symbols-outlined text-primary text-[18px]">lock</span>
+                        <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">API Key Vault</h3>
+                        {keyValid === true && <span className="ml-auto text-[10px] font-mono text-tertiary">✅ Verified</span>}
+                        {keyValid === false && <span className="ml-auto text-[10px] font-mono text-error">❌ Invalid</span>}
                       </div>
-                      <div style={{ marginBottom: 8 }}>
-                        <label style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, display: 'block', marginBottom: 4 }}>Active API Secret Key</label>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <input style={{ flex: 1, background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: '6px 10px', ...mono, fontSize: 11, color: C.onSurface, outline: 'none' }} type={keyValid ? 'text' : 'password'} value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onBlur={() => loadAccounts(selected.id, apiKeyInput)} placeholder="mk_live_..." />
-                          <button onClick={() => { if (apiKeyInput) navigator.clipboard.writeText(apiKeyInput); }} style={{ padding: '6px 10px', borderRadius: 4, background: C.surfaceHigh, border: `1px solid ${C.outlineVariant}`, color: C.onSurface, ...mono, fontSize: 10, cursor: 'pointer' }}>Copy</button>
+                      <div>
+                        <label className="block text-[10px] font-mono text-on-surface-variant mb-1">Active API Secret Key</label>
+                        <div className="flex items-center gap-2">
+                          <input className="flex-1 bg-surface-container-low border border-outline-variant/60 rounded px-3 py-1.5 font-mono text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30" type="text" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} onBlur={() => loadAccounts(selected.id, apiKeyInput)} placeholder="mk_live_..." />
+                          <button onClick={() => { if (apiKeyInput) navigator.clipboard.writeText(apiKeyInput); }} className="p-1.5 text-on-surface-variant hover:text-white rounded hover:bg-surface-container" title="Copy"><span className="material-symbols-outlined text-[15px]">content_copy</span></button>
                         </div>
-                        <div style={{ ...mono, fontSize: 9, color: C.outline, marginTop: 4 }}>Press Tab after pasting to verify signature</div>
-                        {keyValid === true && <div style={{ ...mono, fontSize: 10, color: C.tertiary, marginTop: 4 }}>✅ Key verified — accounts loaded</div>}
-                        {keyValid === false && <div style={{ ...mono, fontSize: 10, color: C.error, marginTop: 4 }}>❌ Key mismatch or invalid</div>}
+                        <div className="font-mono text-[9px] text-outline mt-1">Press Tab after pasting to verify</div>
                       </div>
-                      <div style={{ background: `${C.surfaceLow}90`, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 8, ...mono, fontSize: 10 }}>
-                        <div style={{ color: C.outline, marginBottom: 4 }}>BASH / RUNTIME PROXY INVOCATION</div>
-                        <code style={{ color: C.tertiary, display: 'block', overflowX: 'auto', whiteSpace: 'pre', fontSize: 9 }}>{'curl -X POST http://localhost:4100/api/v1/payments \\\n  -H "X-API-Key: {key}" \\\n  -d \'{"order_id": "ORD-1", "amount": "499"}\''}</code>
+                      <div className="p-2.5 rounded bg-surface-container-low/90 border border-outline-variant/40 font-mono text-[10px]">
+                        <div className="text-outline mb-1">BASH / RUNTIME PROXY INVOCATION</div>
+                        <code className="text-tertiary block overflow-x-auto whitespace-pre text-[9px]">{`curl -X POST http://localhost:4100/api/v1/payments \\\n  -H "X-API-Key: {key}" \\\n  -d '{"order_id": "ORD-1", "amount": "499"}'`}</code>
                       </div>
                     </div>
 
-                    {/* VPAs */}
-                    <div style={{ background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 8, padding: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8, borderBottom: `1px solid ${C.outlineVariant}`, marginBottom: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ color: C.secondary, fontSize: 16 }}>🏦</span>
-                          <h3 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Receiving Accounts (VPAs)</h3>
+                    <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-secondary text-[18px]">account_balance</span>
+                          <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Receiving Accounts (VPAs)</h3>
                         </div>
-                        <span style={{ ...mono, fontSize: 9, color: C.tertiary, background: `${C.tertiary}15`, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.tertiary}30` }}>{accounts.filter(a => a.is_active).length} ACTIVE</span>
+                        <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-tertiary/10 text-tertiary border border-tertiary/30">{accounts.filter(a => a.is_active).length} ACTIVE</span>
                       </div>
-
-                      {/* Add VPA */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, marginBottom: 10 }}>
-                        <input style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: '6px 8px', ...mono, fontSize: 11, color: '#fff', outline: 'none' }} placeholder="vpa@bankhandle" value={vpa} onChange={e => setVpa(e.target.value)} />
-                        <input style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: '6px 8px', fontSize: 11, color: '#fff', outline: 'none' }} placeholder="Account name" value={acctName} onChange={e => setAcctName(e.target.value)} />
-                        <button onClick={addAccount} style={{ padding: '6px 12px', borderRadius: 4, background: C.secondary, color: C.surfaceLowest, ...mono, fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer' }}>+ Attach</button>
-                      </div>
-
-                      {/* VPA List */}
-                      {loadingAccounts ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {[1, 2].map(i => <div key={i} style={{ height: 40, background: C.surfaceLow, borderRadius: 4, animation: 'pulse 1.5s infinite' }} />)}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                        <div className="sm:col-span-5">
+                          <input className="w-full bg-surface-container border border-outline-variant/50 rounded px-2.5 py-1 font-mono text-xs text-white placeholder:text-outline/70 focus:outline-none focus:border-secondary" placeholder="vpa@bankhandle" value={vpa} onChange={e => setVpa(e.target.value)} />
                         </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {accounts.map(a => (
-                            <div key={a.id} style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 6, padding: 10, opacity: a.is_active ? 1 : 0.4, borderLeft: `3px solid ${a.is_active ? C.tertiary : C.error}` }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                                  <div style={{ width: 28, height: 28, borderRadius: 4, background: `${C.secondary}15`, border: `1px solid ${C.secondary}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', ...mono, fontWeight: 700, fontSize: 9, color: C.secondary, flexShrink: 0 }}>
+                        <div className="sm:col-span-4">
+                          <input className="w-full bg-surface-container border border-outline-variant/50 rounded px-2.5 py-1 text-xs text-white placeholder:text-outline/70 focus:outline-none focus:border-secondary" placeholder="Account name" value={acctName} onChange={e => setAcctName(e.target.value)} />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <button onClick={addAccount} className="w-full h-7 rounded bg-surface-container-high hover:bg-surface-container-highest text-secondary border border-secondary/30 font-mono text-[10px] font-semibold flex items-center justify-center gap-1 transition-all">
+                            <span className="material-symbols-outlined text-[14px]">add_circle</span> Attach VPA
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {loadingAccounts ? (
+                          [1, 2].map(i => <div key={i} className="h-20 rounded bg-surface-container-low animate-pulse"></div>)
+                        ) : (
+                          accounts.map(a => (
+                            <div key={a.id} className={`p-3 rounded bg-surface-container-low border border-outline-variant/50 flex flex-col justify-between space-y-2 ${!a.is_active ? 'opacity-40' : ''}`} style={{ borderLeft: `3px solid ${a.is_active ? '#4edea3' : '#ffb4ab'}` }}>
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded bg-secondary/15 text-secondary border border-secondary/30 flex items-center justify-center font-mono font-bold text-[10px]">
                                     {a.vpa.split('@')[1]?.slice(0, 4).toUpperCase() || 'VPA'}
                                   </div>
-                                  <div style={{ minWidth: 0 }}>
-                                    <span style={{ ...mono, fontSize: 11, color: '#fff', fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.vpa}</span>
-                                    <span style={{ ...mono, fontSize: 9, color: C.onSurfaceVariant }}>{a.account_name} • {a.id.slice(0, 8)}</span>
+                                  <div>
+                                    <span className="font-mono font-semibold text-white text-xs block">{a.vpa}</span>
+                                    <span className="text-[10px] font-mono text-on-surface-variant">{a.account_name} • {a.id.slice(0, 8)}</span>
                                   </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-                                  <span style={{ ...mono, fontSize: 9, color: a.is_slot_busy ? '#f59e0b' : C.tertiary, background: a.is_slot_busy ? 'rgba(245,158,11,0.1)' : `${C.tertiary}10`, padding: '1px 6px', borderRadius: 3, border: `1px solid ${a.is_slot_busy ? 'rgba(245,158,11,0.3)' : C.tertiary + '30'}` }}>
-                                    {a.is_slot_busy ? 'BUSY' : 'FREE'}
-                                  </span>
-                                  <button onClick={() => toggleAccount(a.id)} style={{ ...mono, fontSize: 9, padding: '2px 6px', borderRadius: 3, border: `1px solid ${a.is_active ? C.error + '40' : C.tertiary + '40'}`, background: a.is_active ? `${C.error}10` : `${C.tertiary}10`, color: a.is_active ? C.error : C.tertiary, cursor: 'pointer' }}>
-                                    {a.is_active ? 'Deactivate' : 'Activate'}
-                                  </button>
-                                  <button onClick={() => setDefault(a.id)} style={{ ...mono, fontSize: 9, padding: '2px 6px', borderRadius: 3, border: `1px solid ${C.primary}40`, background: `${C.primary}10`, color: C.primary, cursor: 'pointer' }}>Default</button>
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono ${a.is_slot_busy ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' : 'bg-tertiary/10 text-tertiary border border-tertiary/20'}`}>
+                                  {a.is_slot_busy ? 'BUSY' : 'FREE'}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] font-mono text-outline pt-1 border-t border-outline-variant/30">
+                                <span className={a.is_active ? 'text-tertiary' : 'text-error'}>{a.is_active ? '● Active' : '● Inactive'}</span>
+                                <div className="flex gap-1">
+                                  <button onClick={() => toggleAccount(a.id)} className={`px-2 py-0.5 rounded text-[9px] font-mono border ${a.is_active ? 'border-error/40 text-error hover:bg-error-container/20' : 'border-tertiary/40 text-tertiary hover:bg-tertiary/10'}`}>{a.is_active ? 'Deactivate' : 'Activate'}</button>
+                                  <button onClick={() => setDefault(a.id)} className="px-2 py-0.5 rounded text-[9px] font-mono border border-primary/40 text-primary hover:bg-primary/10">Default</button>
                                 </div>
                               </div>
                             </div>
-                          ))}
-                          {accounts.length === 0 && !loadingAccounts && <div style={{ ...mono, fontSize: 11, color: C.onSurfaceVariant, textAlign: 'center', padding: 16 }}>No accounts yet. Paste API key and add VPA above.</div>}
-                        </div>
-                      )}
+                          ))
+                        )}
+                        {accounts.length === 0 && !loadingAccounts && <div className="col-span-2 text-center font-mono text-[11px] text-on-surface-variant py-4">No accounts yet. Paste API key and add VPA above.</div>}
+                      </div>
                     </div>
                   </>
                 )}
 
                 {tab === 'branding' && (
-                  <div style={{ background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 8, padding: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 8, borderBottom: `1px solid ${C.outlineVariant}`, marginBottom: 10 }}>
-                      <span style={{ color: C.primary, fontSize: 16 }}>🎨</span>
-                      <h3 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Checkout Branding Configuration</h3>
+                  <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
+                      <span className="material-symbols-outlined text-primary text-[18px]">palette</span>
+                      <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Customer Checkout Sheet Styling</h3>
                     </div>
                     <BrandingEditor merchant={selected} apiKey={apiKeyInput} />
                   </div>
                 )}
 
                 {tab === 'payments' && (
-                  <div style={{ background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 8, padding: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 8, borderBottom: `1px solid ${C.outlineVariant}`, marginBottom: 10 }}>
-                      <span style={{ color: C.secondary, fontSize: 16 }}>💳</span>
-                      <h3 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Payment Stream</h3>
+                  <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
+                      <span className="material-symbols-outlined text-secondary text-[18px]">payments</span>
+                      <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Payment Stream</h3>
                     </div>
                     <PaymentsView apiKey={apiKeyInput} />
                   </div>
                 )}
 
                 {tab === 'settings' && (
-                  <div style={{ background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 8, padding: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingBottom: 8, borderBottom: `1px solid ${C.outlineVariant}`, marginBottom: 10 }}>
-                      <span style={{ color: C.primary, fontSize: 16 }}>⚙️</span>
-                      <h3 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 11, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Merchant Settings</h3>
+                  <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
+                      <span className="material-symbols-outlined text-primary text-[18px]">settings</span>
+                      <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Merchant Settings</h3>
                     </div>
                     <SettingsView selected={selected} apiKey={apiKeyInput} />
                   </div>
@@ -442,68 +419,61 @@ export default function App() {
               </div>
             </>
           ) : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}>
-              <span style={{ fontSize: 48, opacity: 0.3 }}>🏪</span>
-              <span style={{ ...mono, fontSize: 12, color: C.onSurfaceVariant }}>Select a merchant from the registry</span>
+            <div className="flex-1 flex items-center justify-center flex-col gap-2">
+              <span className="text-4xl opacity-20">🏪</span>
+              <span className="font-mono text-[12px] text-on-surface-variant">Select a merchant from the registry</span>
             </div>
           )}
         </main>
 
-        {/* Column 3: Live Stream & Terminal */}
-        <aside style={{ width: 320, flexShrink: 0, background: C.surfaceLowest, borderLeft: `1px solid ${C.outlineVariant}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: 12, borderBottom: `1px solid ${C.outlineVariant}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: `${C.surfaceLow}60` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: C.tertiary, boxShadow: `0 0 8px ${C.tertiary}` }}></span>
-              <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: 12, color: '#fff', margin: 0 }}>Live Settlement Wire</h2>
+        {/* Right Rail: Live Stream */}
+        <aside className="w-80 shrink-0 bg-surface-container-lowest border-l border-outline-variant/50 flex flex-col h-[calc(100vh-3rem)]">
+          <div className="p-3 border-b border-outline-variant/40 bg-surface-container-low/40 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse shadow-[0_0_8px_rgba(78,222,163,0.8)]"></span>
+              <h2 className="font-headline font-bold text-white text-xs tracking-tight">Live Settlement Wire</h2>
             </div>
-            <span style={{ ...mono, fontSize: 9, color: C.tertiary, background: `${C.tertiary}15`, padding: '2px 6px', borderRadius: 4, border: `1px solid ${C.tertiary}30` }}>SSE CONNECTED</span>
+            <span className="font-mono text-[10px] text-tertiary bg-tertiary/10 px-1.5 py-0.2 rounded border border-tertiary/20">SSE CONNECTED</span>
           </div>
-
-          <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ ...mono, fontSize: 9, color: C.outline, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-2.5 space-y-2">
+            <div className="font-mono text-[9px] text-outline uppercase tracking-wider mb-1 flex justify-between">
               <span>EVENT STREAM</span>
               <span>LAST 10s</span>
             </div>
-            {payments.slice(0, 8).map((p, i) => (
-              <div key={p.id} style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 6, padding: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', ...mono, fontSize: 10 }}>
-                  <span style={{ color: p.status === 'SUCCESS' ? C.tertiary : p.status === 'FAILED' ? C.error : '#f59e0b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
-                    {p.status === 'SUCCESS' ? '✓' : p.status === 'FAILED' ? '✕' : '⏳'} ₹{(p.amount_paise / 100).toFixed(2)}
+            {payments.slice(0, 8).map((p) => (
+              <div key={p.id} className="p-2 rounded bg-surface-container-low border border-outline-variant/40 hover:border-tertiary/40 transition-colors">
+                <div className="flex items-center justify-between font-mono text-[10px]">
+                  <span className={`font-bold flex items-center gap-1 ${p.status === 'SUCCESS' ? 'text-tertiary' : p.status === 'FAILED' ? 'text-error' : 'text-amber-400'}`}>
+                    <span className="material-symbols-outlined text-[12px]">{p.status === 'SUCCESS' ? 'check_circle' : p.status === 'FAILED' ? 'cancel' : 'pending'}</span> ₹{(p.amount_paise / 100).toFixed(2)}
                   </span>
-                  <span style={{ color: C.outline }}>{new Date(p.created_at).toLocaleTimeString()}</span>
+                  <span className="text-outline">{new Date(p.created_at).toLocaleTimeString()}</span>
                 </div>
-                <div style={{ ...mono, fontSize: 9, color: C.onSurface, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.order_id} • {selected?.business_name}</div>
-                <div style={{ ...mono, fontSize: 8, color: C.onSurfaceVariant, display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                <div className="text-[10px] font-mono text-on-surface truncate mt-1">{p.order_id} • {selected?.business_name}</div>
+                <div className="text-[9px] font-mono text-on-surface-variant flex justify-between mt-1">
                   <span>{p.method}</span>
-                  <span style={{ color: p.utr ? C.tertiary : C.outline }}>{p.utr || 'PENDING'}</span>
+                  <span className={p.utr ? 'text-tertiary' : 'text-outline'}>{p.utr || 'PENDING'}</span>
                 </div>
               </div>
             ))}
             {payments.length === 0 && (
-              <div style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, textAlign: 'center', padding: 20 }}>No payments yet. Create one to see live stream.</div>
+              <div className="font-mono text-[10px] text-on-surface-variant text-center py-6">No payments yet. Create one to see live stream.</div>
             )}
           </div>
-
-          {/* Terminal */}
-          <div style={{ borderTop: `1px solid ${C.outlineVariant}`, background: C.surfaceLowest, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', ...mono, fontSize: 9, color: C.onSurfaceVariant }}>
-              <span style={{ color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ color: C.primary }}>⌘</span> OPS DISPATCH
-              </span>
-              <span style={{ color: C.outline }}>v2.4 CLI</span>
+          <div className="border-t border-outline-variant/40 bg-surface-container-lowest p-3 space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-mono text-on-surface-variant">
+              <span className="flex items-center gap-1 text-white font-semibold"><span className="material-symbols-outlined text-[13px] text-primary">terminal</span> OPS DISPATCH</span>
+              <span className="text-outline">v2.4 CLI</span>
             </div>
-            <div style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 8, ...mono, fontSize: 9 }}>
-              <div style={{ color: C.outline, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span style={{ color: C.tertiary }}>$</span> skarpay vpa --ping-all --mesh
-              </div>
-              <div style={{ color: C.tertiary, fontSize: 8, marginTop: 2 }}>✔ {accounts.filter(a => a.is_active).length}/{accounts.length} VPAs active</div>
+            <div className="bg-surface-container-low rounded border border-outline-variant/60 p-2 font-mono text-[10px] space-y-1">
+              <div className="text-outline flex items-center gap-1"><span className="text-tertiary">$</span> skarpay vpa --ping-all --mesh</div>
+              <div className="text-tertiary text-[9px]">✔ {accounts.filter(a => a.is_active).length}/{accounts.length} VPAs active</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, ...mono, fontSize: 9 }}>
-              <button onClick={() => { if (apiKeyInput) navigator.clipboard.writeText(apiKeyInput); }} style={{ height: 22, borderRadius: 4, background: C.surfaceHigh, border: `1px solid ${C.outlineVariant}`, color: C.onSurface, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, cursor: 'pointer' }}>
-                <span style={{ color: C.secondary }}>↗</span> Copy Key
+            <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
+              <button onClick={() => { if (apiKeyInput) navigator.clipboard.writeText(apiKeyInput); }} className="h-6 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/50 flex items-center justify-center gap-1 transition-colors">
+                <span className="material-symbols-outlined text-[12px] text-secondary">content_copy</span> Copy Key
               </button>
-              <button onClick={() => loadPayments(apiKeyInput)} style={{ height: 22, borderRadius: 4, background: C.surfaceHigh, border: `1px solid ${C.outlineVariant}`, color: C.onSurface, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, cursor: 'pointer' }}>
-                <span style={{ color: C.tertiary }}>⟳</span> Refresh
+              <button onClick={() => loadPayments(apiKeyInput)} className="h-6 rounded bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/50 flex items-center justify-center gap-1 transition-colors">
+                <span className="material-symbols-outlined text-[12px] text-tertiary">refresh</span> Refresh
               </button>
             </div>
           </div>
