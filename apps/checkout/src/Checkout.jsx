@@ -52,8 +52,7 @@ export default function Checkout() {
   const brandName = brand.name || data?.merchant?.name || 'Merchant';
   const accent = brand.accentColor || '#8083ff';
   const amount = p ? (p.amountPaise / 100).toFixed(2) : '0.00';
-  const gst = (parseFloat(amount) * 0.18).toFixed(2);
-  const total = (parseFloat(amount) * 1.18).toFixed(2);
+  const total = amount;
 
   function switchTab(tabId) {
     setActiveTab(tabId);
@@ -355,10 +354,6 @@ export default function Checkout() {
                 <span className="font-code-sm text-body-md text-on-surface font-semibold shrink-0">₹{amount}</span>
               </div>
               <div className="flex items-center justify-between text-body-sm">
-                <span className="text-on-surface-variant">GST (18%)</span>
-                <span className="font-code-sm text-on-surface">₹{gst}</span>
-              </div>
-              <div className="flex items-center justify-between text-body-sm">
                 <span className="text-on-surface-variant">Gateway Fee</span>
                 <span className="font-code-sm text-tertiary">FREE</span>
               </div>
@@ -368,7 +363,7 @@ export default function Checkout() {
                 <span className="text-body-lg font-label-md font-semibold text-on-surface">Total Payable</span>
                 <div className="text-right">
                   <span className="text-headline-xl font-headline-xl font-bold text-on-surface tracking-tight">₹{total}</span>
-                  <span className="block text-[11px] font-code-sm text-outline">Inclusive of all applicable taxes</span>
+                  <span className="block text-[11px] font-code-sm text-outline">No additional charges</span>
                 </div>
               </div>
             </div>
