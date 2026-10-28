@@ -4,12 +4,13 @@ import QRCode from 'qrcode';
 export default function PairingQR({ merchant, apiKey }) {
   const [qrUrl, setQrUrl] = useState(null);
   const [token, setToken] = useState('');
+  const [serverUrl, setServerUrl] = useState('http://192.168.0.103:4100');
 
   async function generate() {
     if (!merchant) return;
     const enrollmentToken = token || 'enroll-' + merchant.id.slice(0, 8);
     const pairingData = JSON.stringify({
-      baseUrl: window.location.origin.replace('5173', '4100'),
+      baseUrl: serverUrl,
       token: enrollmentToken,
       merchantId: merchant.id,
     });
@@ -25,6 +26,15 @@ export default function PairingQR({ merchant, apiKey }) {
     <div style={{ background: '#0b0f19', border: '1px solid #263047', borderRadius: 8, padding: 16, marginTop: 12 }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: '#e2e7f5', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Device Pairing QR</div>
       <div style={{ fontSize: 10, color: '#8e99b5', marginBottom: 12 }}>Generate a QR code for the Android observer app to scan and auto-pair.</div>
+      <div style={{ marginBottom: 8 }}>
+        <label style={{ fontSize: 10, color: '#8e99b5', display: 'block', marginBottom: 4 }}>Server URL (your computer's IP)</label>
+        <input
+          style={{ width: '100%', padding: '8px 10px', background: '#070a10', border: '1px solid #263047', borderRadius: 4, color: '#e2e7f5', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
+          placeholder="http://192.168.x.x:4100"
+          value={serverUrl}
+          onChange={e => setServerUrl(e.target.value)}
+        />
+      </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input
           style={{ flex: 1, padding: '8px 10px', background: '#070a10', border: '1px solid #263047', borderRadius: 4, color: '#e2e7f5', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}
