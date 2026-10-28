@@ -376,6 +376,24 @@ export default function App() {
                                 <div className="flex gap-1">
                                   <button onClick={() => toggleAccount(a.id)} className={`px-2 py-0.5 rounded text-[9px] font-mono border ${a.is_active ? 'border-error/40 text-error hover:bg-error-container/20' : 'border-tertiary/40 text-tertiary hover:bg-tertiary/10'}`}>{a.is_active ? 'Deactivate' : 'Activate'}</button>
                                   <button onClick={() => setDefault(a.id)} className="px-2 py-0.5 rounded text-[9px] font-mono border border-primary/40 text-primary hover:bg-primary/10">Default</button>
+                                  <button onClick={async () => {
+                                    const newVpa = prompt('Edit VPA:', a.vpa);
+                                    if (!newVpa || newVpa === a.vpa) return;
+                                    const newName = prompt('Edit account name:', a.account_name) || a.account_name;
+                                    try {
+                                      await fetch(`/api/v1/payments/accounts/${a.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKeyInput }, body: JSON.stringify({ vpa: newVpa, account_name: newName }) });
+                                      await loadAccounts(selected.id, apiKeyInput);
+                                    } catch (e) { setErr('Edit failed'); }
+                                  }} className="px-2 py-0.5 rounded text-[9px] font-mono border border-secondary/40 text-secondary hover:bg-secondary/10">Edit</button>
+                                  <button onClick={async () => {
+                                    if (!confirm(`Remove VPA ${a.vpa}?`)) return;
+                                    try {
+                                      const r = await fetch(`/api/v1/payments/accounts/${a.id}`, { method: 'DELETE', headers: { 'X-API-Key': apiKeyInput } });
+                                      const j = await r.json();
+                                      if (!r.ok) { setErr(j.error || 'Delete failed'); return; }
+                                      await loadAccounts(selected.id, apiKeyInput);
+                                    } catch (e) { setErr('Delete failed'); }
+                                  }} className="px-2 py-0.5 rounded text-[9px] font-mono border border-error/40 text-error hover:bg-error-container/20">Remove</button>
                                 </div>
                               </div>
                             </div>

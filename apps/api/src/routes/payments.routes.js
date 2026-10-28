@@ -33,6 +33,34 @@ router.get('/accounts', async (req, res) => {
   res.json({ accounts: data });
 });
 
+// Edit VPA
+router.put('/accounts/:id', async (req, res) => {
+  const supabase = requireAdmin();
+  const { vpa, account_name, daily_limit_paise, is_active } = req.body || {};
+  const patch = {};
+  if (vpa) patch.vpa = vpa;
+  if (account_name !== undefined) patch.account_name = account_name;
+  if (daily_limit_paise !== undefined) patch.daily_limit_paise = daily_limit_paise;
+  if (is_active !== undefined) patch.is_active = is_active;
+  patch.updated_at = new Date().toISOString();
+  const { data, error } = await supabase.from('receiving_accounts').update(patch).eq('id', req.params.id).eq('merchant_id', req.merchant.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ account: data });
+});
+
+// Remove VPA
+router.delete('/accounts/:id', async (req, res) => {
+  const supabase = requireAdmin();
+  // Check if any active sessions
+  const { data: sessions } = await supabase.from('payment_sessions').select('id').eq('receiving_account_id', req.params.id).in('status', ['ACTIVE', 'PROCESSING', 'QUEUED']);
+  if (sessions && sessions.length > 0) {
+    return res.status(400).json({ error: 'Cannot delete: active sessions exist on this VPA' });
+  }
+  const { error } = await supabase.from('receiving_accounts').delete().eq('id', req.params.id).eq('merchant_id', req.merchant.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ deleted: true });
+});
+
 // Toggle VPA active/inactive
 router.put('/accounts/:id/toggle', async (req, res) => {
   const supabase = requireAdmin();
