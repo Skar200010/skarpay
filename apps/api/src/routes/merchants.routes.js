@@ -42,6 +42,17 @@ router.get('/:id', async (req, res) => {
   res.json({ merchant: data });
 });
 
+// Regenerate API key (shown once)
+router.post('/:id/regenerate-key', async (req, res) => {
+  const supabase = requireAdmin();
+  const { data: merchant } = await supabase.from('merchants').select('id').eq('id', req.params.id).single();
+  if (!merchant) return res.status(404).json({ error: 'not found' });
+  const apiKey = 'mk_live_' + generateRandomToken(24);
+  const apiKeyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+  await supabase.from('merchants').update({ api_key_hash: apiKeyHash }).eq('id', req.params.id);
+  res.json({ api_key: apiKey, message: 'New API key generated. Save it — shown once.' });
+});
+
 router.put('/:id', async (req, res) => {
   const supabase = requireAdmin();
   const patch = {};

@@ -74,6 +74,27 @@ export default function SettingsView({ selected, apiKey }) {
       </div>
 
       <div style={S.card}>
+        <h2 style={S.h2}>API Key Management</h2>
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Lost your API key? Regenerate a new one. The old key will stop working.</p>
+          <button style={{ ...S.btn, background: '#ef4444' }} onClick={async () => {
+            if (!selected) return;
+            if (!confirm('Regenerate API key? Old key will stop working.')) return;
+            const r = await fetch(`/api/v1/merchants/${selected.id}/regenerate-key`, { method: 'POST' });
+            const j = await r.json();
+            if (!r.ok) { setMsg(j.error || 'Failed'); return; }
+            setMsg('New API Key: ' + j.api_key);
+            localStorage.setItem('sk_apikey_' + selected.id, j.api_key);
+            setApiKeyInput?.(j.api_key);
+          }}>Regenerate API Key</button>
+          {msg && msg.startsWith('New API Key') && (
+            <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: 12, marginTop: 12, fontSize: 13 }}>
+              <strong>⚠️ Save this key (shown once):</strong><br />
+              <code style={{ wordBreak: 'break-all' }}>{msg.replace('New API Key: ', '')}</code>
+            </div>
+          )}
+        </div>
+
         <h2 style={S.h2}>API Integration</h2>
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.8 }}>
           <div><strong>API Base URL:</strong> <code style={{ background: '#f3f4f6', padding: '2px 6px', borderRadius: 4 }}>http://localhost:4100/api/v1</code></div>
