@@ -1,8 +1,22 @@
 import React, { useState, useEffect } from 'react';
 
+const C = {
+  surfaceLow: '#0b0f19',
+  surfaceLowest: '#070a10',
+  outline: '#4b5570',
+  outlineVariant: '#263047',
+  primary: '#c0c1ff',
+  secondary: '#4cd7f6',
+  tertiary: '#4edea3',
+  error: '#ffb4ab',
+  onSurface: '#e2e7f5',
+  onSurfaceVariant: '#8e99b5',
+};
+
 export default function PaymentsView({ apiKey }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const mono = { fontFamily: 'JetBrains Mono, monospace' };
 
   async function load() {
     if (!apiKey) return;
@@ -17,41 +31,46 @@ export default function PaymentsView({ apiKey }) {
 
   useEffect(() => { load(); const iv = setInterval(load, 5000); return () => clearInterval(iv); }, [apiKey]);
 
-  const statusColor = (s) => ({ SUCCESS: '#10b981', FAILED: '#ef4444', ACTIVE: '#f59e0b', PROCESSING: '#3b82f6', EXPIRED: '#6b7280', CANCELLED: '#6b7280', QUEUED: '#8b5cf6' }[s] || '#6b7280');
+  const statusColor = (s) => ({ SUCCESS: C.tertiary, FAILED: C.error, ACTIVE: '#f59e0b', PROCESSING: C.secondary, EXPIRED: C.onSurfaceVariant, CANCELLED: C.onSurfaceVariant, QUEUED: '#8b5cf6' }[s] || C.onSurfaceVariant);
 
-  if (!apiKey) return <div style={{ color: '#ef4444', padding: 20 }}>Select a merchant and paste API key first.</div>;
+  if (!apiKey) return <div style={{ ...mono, fontSize: 11, color: C.error, padding: 20 }}>Select a merchant and paste API key first.</div>;
 
   return (
     <div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 4px' }}>Payments</h1>
-      <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 24px' }}>Live payment tracking (auto-refreshes every 5s)</p>
-      {loading && payments.length === 0 && <div style={{ color: '#9ca3af', padding: 40, textAlign: 'center' }}>Loading...</div>}
-      <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <span style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant }}>Live payment tracking (auto-refresh 5s)</span>
+        <button onClick={load} style={{ ...mono, fontSize: 10, padding: '3px 8px', borderRadius: 3, border: `1px solid ${C.outlineVariant}`, background: C.surfaceLow, color: C.onSurface, cursor: 'pointer' }}>⟳ Refresh</button>
+      </div>
+      {loading && payments.length === 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[1, 2, 3].map(i => <div key={i} style={{ height: 36, background: C.surfaceLow, borderRadius: 4, animation: 'pulse 1.5s infinite' }} />)}
+        </div>
+      )}
+      <div style={{ background: C.surfaceLowest, border: `1px solid ${C.outlineVariant}`, borderRadius: 6, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase' }}>Order</th>
-              <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase' }}>Amount</th>
-              <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase' }}>Method</th>
-              <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase' }}>Status</th>
-              <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase' }}>UTR</th>
-              <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase' }}>Created</th>
+            <tr style={{ background: C.surfaceLow }}>
+              {['Order', 'Amount', 'Method', 'Status', 'UTR', 'Created'].map(h => (
+                <th key={h} style={{ textAlign: 'left', padding: '8px 10px', ...mono, fontSize: 9, color: C.onSurfaceVariant, fontWeight: 600, borderBottom: `1px solid ${C.outlineVariant}`, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {payments.map(p => (
-              <tr key={p.id}>
-                <td style={{ padding: '12px', fontSize: 13, borderBottom: '1px solid #f3f4f6', fontWeight: 600 }}>{p.order_id}</td>
-                <td style={{ padding: '12px', fontSize: 13, borderBottom: '1px solid #f3f4f6' }}>Rs.{(p.amount_paise / 100).toFixed(2)}</td>
-                <td style={{ padding: '12px', fontSize: 12, borderBottom: '1px solid #f3f4f6', color: '#6b7280' }}>{p.method}</td>
-                <td style={{ padding: '12px', fontSize: 12, borderBottom: '1px solid #f3f4f6' }}>
-                  <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: statusColor(p.status) + '20', color: statusColor(p.status) }}>{p.status}</span>
+              <tr key={p.id} style={{ borderBottom: `1px solid ${C.outlineVariant}30` }}>
+                <td style={{ padding: '8px 10px', ...mono, fontSize: 11, color: '#fff', fontWeight: 600 }}>{p.order_id}</td>
+                <td style={{ padding: '8px 10px', ...mono, fontSize: 11, color: C.onSurface }}>₹{(p.amount_paise / 100).toFixed(2)}</td>
+                <td style={{ padding: '8px 10px', ...mono, fontSize: 9, color: C.onSurfaceVariant }}>{p.method}</td>
+                <td style={{ padding: '8px 10px' }}>
+                  <span style={{ ...mono, fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 3, background: statusColor(p.status) + '15', color: statusColor(p.status), border: `1px solid ${statusColor(p.status)}30` }}>{p.status}</span>
                 </td>
-                <td style={{ padding: '12px', fontSize: 11, borderBottom: '1px solid #f3f4f6', fontFamily: 'monospace', color: '#6b7280' }}>{p.utr || '—'}</td>
-                <td style={{ padding: '12px', fontSize: 11, borderBottom: '1px solid #f3f4f6', color: '#9ca3af' }}>{new Date(p.created_at).toLocaleString()}</td>
+                <td style={{ padding: '8px 10px', ...mono, fontSize: 9, color: C.onSurfaceVariant, fontFamily: 'monospace' }}>{p.utr || '—'}</td>
+                <td style={{ padding: '8px 10px', ...mono, fontSize: 9, color: C.onSurfaceVariant }}>{new Date(p.created_at).toLocaleTimeString()}</td>
               </tr>
             ))}
-            {payments.length === 0 && !loading && <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No payments yet</td></tr>}
+            {payments.length === 0 && !loading && (
+              <tr><td colSpan={6} style={{ padding: 30, textAlign: 'center', ...mono, fontSize: 10, color: C.onSurfaceVariant }}>No payments yet</td></tr>
+            )}
           </tbody>
         </table>
       </div>

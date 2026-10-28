@@ -1,17 +1,30 @@
 import React, { useState, useEffect } from 'react';
 
+const C = {
+  surfaceLow: '#0b0f19',
+  surfaceLowest: '#070a10',
+  outline: '#4b5570',
+  outlineVariant: '#263047',
+  primary: '#c0c1ff',
+  inversePrimary: '#494bd6',
+  secondary: '#4cd7f6',
+  tertiary: '#4edea3',
+  error: '#ffb4ab',
+  onSurface: '#e2e7f5',
+  onSurfaceVariant: '#8e99b5',
+};
+
 export default function SettingsView({ selected, apiKey }) {
   const [webhookUrl, setWebhookUrl] = useState(selected?.webhook_url || '');
   const [msg, setMsg] = useState('');
   const [saving, setSaving] = useState(false);
+  const mono = { fontFamily: 'JetBrains Mono, monospace' };
 
-  useEffect(() => {
-    setWebhookUrl(selected?.webhook_url || '');
-  }, [selected]);
+  useEffect(() => { setWebhookUrl(selected?.webhook_url || ''); }, [selected]);
 
   async function saveWebhook(e) {
     e.preventDefault();
-    if (!selected || !apiKey) { setMsg('Select a merchant and paste API key first'); return; }
+    if (!selected) { setMsg('Select a merchant first'); return; }
     setSaving(true);
     try {
       const r = await fetch(`/api/v1/merchants/${selected.id}`, {
@@ -26,84 +39,96 @@ export default function SettingsView({ selected, apiKey }) {
     setSaving(false);
   }
 
-  const S = {
-    card: { background: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', padding: 24, marginBottom: 20 },
-    h1: { fontSize: 24, fontWeight: 700, margin: '0 0 4px', color: '#111' },
-    h2: { fontSize: 18, fontWeight: 600, margin: '0 0 16px', color: '#111' },
-    label: { fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block', fontWeight: 500 },
-    input: { padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, width: '100%', outline: 'none' },
-    btn: { background: '#528FF0', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  };
+  async function regenerateKey() {
+    if (!selected) return;
+    if (!confirm('Regenerate API key? Old key will stop working.')) return;
+    try {
+      const r = await fetch(`/api/v1/merchants/${selected.id}/regenerate-key`, { method: 'POST' });
+      const j = await r.json();
+      if (!r.ok) { setMsg(j.error || 'Failed'); return; }
+      setMsg('New key: ' + j.api_key);
+      localStorage.setItem('sk_apikey_' + selected.id, j.api_key);
+    } catch (e) { setMsg('Error: ' + e.message); }
+  }
+
+  const inputStyle = { width: '100%', background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: '6px 10px', ...mono, fontSize: 11, color: C.onSurface, outline: 'none' };
 
   if (!selected) {
-    return (
-      <div style={S.card}>
-        <h1 style={S.h1}>Settings</h1>
-        <p style={{ color: '#6b7280', fontSize: 14 }}>Select a merchant from the Merchants tab first.</p>
-      </div>
-    );
+    return <div style={{ ...mono, fontSize: 11, color: C.onSurfaceVariant, padding: 20 }}>Select a merchant from the registry first.</div>;
   }
 
   return (
-    <div>
-      <div style={S.card}>
-        <h1 style={S.h1}>Settings</h1>
-        <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 24px' }}>Configure {selected.business_name}</p>
-
-        <h2 style={S.h2}>Merchant Info</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-          <div><label style={S.label}>Business Name</label><div style={{ fontSize: 14, fontWeight: 600 }}>{selected.business_name}</div></div>
-          <div><label style={S.label}>Merchant ID</label><div style={{ fontSize: 12, fontFamily: 'monospace', color: '#6b7280' }}>{selected.id}</div></div>
-          <div><label style={S.label}>Status</label><div style={{ fontSize: 14 }}>{selected.is_active ? '✅ Active' : '❌ Inactive'}</div></div>
-        </div>
-
-        <h2 style={S.h2}>Webhook Configuration</h2>
-        <form onSubmit={saveWebhook} style={{ marginBottom: 16 }}>
-          <label style={S.label}>Webhook URL (where payment events are sent)</label>
-          <input style={S.input} value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://yoursite.com/api/webhook" />
-          <div style={{ marginTop: 12 }}>
-            <button type="submit" style={S.btn} disabled={saving}>{saving ? 'Saving...' : 'Save Webhook URL'}</button>
-            {msg && <span style={{ marginLeft: 12, fontSize: 13, color: msg.includes('saved') || msg.includes('Saved') ? '#10b981' : '#ef4444' }}>{msg}</span>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Merchant Info */}
+      <div>
+        <div style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Merchant Info</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 8 }}>
+            <div style={{ ...mono, fontSize: 9, color: C.onSurfaceVariant }}>Business Name</div>
+            <div style={{ ...mono, fontSize: 11, color: C.onSurface, fontWeight: 600 }}>{selected.business_name}</div>
           </div>
-        </form>
-        <div style={{ fontSize: 12, color: '#9ca3af', background: '#f9fafb', borderRadius: 6, padding: 12 }}>
-          <strong>Webhook Secret:</strong> (shown when merchant was created — used to verify HMAC signatures)<br />
-          <strong>Headers sent:</strong> X-Gateway-Event, X-Gateway-Signature (sha256=...), X-Gateway-Delivery-Id, X-Gateway-Timestamp<br />
-          <strong>Events:</strong> SUCCESS (UPI, COD, CASH_COUNTER, CARD_COUNTER)
+          <div style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 8 }}>
+            <div style={{ ...mono, fontSize: 9, color: C.onSurfaceVariant }}>Merchant ID</div>
+            <div style={{ ...mono, fontSize: 9, color: C.onSurface, wordBreak: 'break-all' }}>{selected.id}</div>
+          </div>
+          <div style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 8 }}>
+            <div style={{ ...mono, fontSize: 9, color: C.onSurfaceVariant }}>Status</div>
+            <div style={{ ...mono, fontSize: 11, color: selected.is_active ? C.tertiary : C.error }}>{selected.is_active ? '● ACTIVE' : '● INACTIVE'}</div>
+          </div>
+          <div style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 8 }}>
+            <div style={{ ...mono, fontSize: 9, color: C.onSurfaceVariant }}>API Key Status</div>
+            <div style={{ ...mono, fontSize: 11, color: apiKey ? C.tertiary : C.error }}>{apiKey ? '● CONFIGURED' : '● MISSING'}</div>
+          </div>
         </div>
       </div>
 
-      <div style={S.card}>
-        <h2 style={S.h2}>API Key Management</h2>
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>Lost your API key? Regenerate a new one. The old key will stop working.</p>
-          <button style={{ ...S.btn, background: '#ef4444' }} onClick={async () => {
-            if (!selected) return;
-            if (!confirm('Regenerate API key? Old key will stop working.')) return;
-            const r = await fetch(`/api/v1/merchants/${selected.id}/regenerate-key`, { method: 'POST' });
-            const j = await r.json();
-            if (!r.ok) { setMsg(j.error || 'Failed'); return; }
-            setMsg('New API Key: ' + j.api_key);
-            localStorage.setItem('sk_apikey_' + selected.id, j.api_key);
-            setApiKeyInput?.(j.api_key);
-          }}>Regenerate API Key</button>
-          {msg && msg.startsWith('New API Key') && (
-            <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 8, padding: 12, marginTop: 12, fontSize: 13 }}>
-              <strong>⚠️ Save this key (shown once):</strong><br />
-              <code style={{ wordBreak: 'break-all' }}>{msg.replace('New API Key: ', '')}</code>
+      {/* Webhook Config */}
+      <div>
+        <div style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Webhook Configuration</div>
+        <form onSubmit={saveWebhook} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div>
+            <label style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, display: 'block', marginBottom: 4 }}>Webhook URL (payment events destination)</label>
+            <input style={inputStyle} value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://yoursite.com/api/webhook" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button type="submit" style={{ padding: '6px 16px', borderRadius: 4, background: C.primary, color: C.surfaceLowest, ...mono, fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer' }} disabled={saving}>{saving ? 'Saving...' : 'Save Webhook URL'}</button>
+            {msg && <span style={{ ...mono, fontSize: 10, color: msg.includes('saved') || msg.includes('Saved') ? C.tertiary : C.error }}>{msg}</span>}
+          </div>
+        </form>
+        <div style={{ ...mono, fontSize: 9, color: C.onSurfaceVariant, background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 10, marginTop: 8, lineHeight: 1.6 }}>
+          <div><strong style={{ color: C.onSurface }}>Headers:</strong> X-Gateway-Event, X-Gateway-Signature (sha256=...), X-Gateway-Delivery-Id, X-Gateway-Timestamp</div>
+          <div><strong style={{ color: C.onSurface }}>Events:</strong> SUCCESS (UPI, COD, CASH_COUNTER, CARD_COUNTER)</div>
+          <div><strong style={{ color: C.onSurface }}>Verification:</strong> HMAC-SHA256 over raw request body (constant-time compare)</div>
+        </div>
+      </div>
+
+      {/* API Key Management */}
+      <div>
+        <div style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>API Key Management</div>
+        <div style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 10 }}>
+          <p style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, marginBottom: 8 }}>Lost your API key? Regenerate a new one. The old key will stop working immediately.</p>
+          <button onClick={regenerateKey} style={{ padding: '6px 16px', borderRadius: 4, background: `${C.error}20`, border: `1px solid ${C.error}40`, color: C.error, ...mono, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>⚠ Regenerate API Key</button>
+          {msg && msg.startsWith('New key') && (
+            <div style={{ background: `${C.tertiary}10`, border: `1px solid ${C.tertiary}40`, borderRadius: 4, padding: 10, marginTop: 8 }}>
+              <div style={{ ...mono, fontSize: 9, color: C.tertiary, marginBottom: 4 }}>⚠️ Save this key (shown once):</div>
+              <code style={{ ...mono, fontSize: 10, color: C.onSurface, wordBreak: 'break-all' }}>{msg.replace('New key: ', '')}</code>
             </div>
           )}
         </div>
+      </div>
 
-        <h2 style={S.h2}>API Integration</h2>
-        <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.8 }}>
-          <div><strong>API Base URL:</strong> <code style={{ background: '#f3f4f6', padding: '2px 6px', borderRadius: 4 }}>http://localhost:4100/api/v1</code></div>
-          <div><strong>Auth:</strong> <code style={{ background: '#f3f4f6', padding: '2px 6px', borderRadius: 4 }}>X-API-Key: mk_live_...</code></div>
-          <div><strong>Create Payment:</strong> POST /payments</div>
-          <div><strong>Check Status:</strong> GET /payments/:id</div>
-          <div><strong>Verify:</strong> POST /payments/:id/verify</div>
-          <div><strong>Checkout:</strong> GET /checkout/:id</div>
-          <div><strong>Webhook:</strong> POST /api/webhook (merchant's endpoint)</div>
+      {/* API Integration */}
+      <div>
+        <div style={{ ...mono, fontSize: 10, color: C.onSurfaceVariant, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>API Integration</div>
+        <div style={{ background: C.surfaceLow, border: `1px solid ${C.outlineVariant}`, borderRadius: 4, padding: 10, ...mono, fontSize: 10, color: C.onSurfaceVariant, lineHeight: 1.8 }}>
+          <div><span style={{ color: C.onSurface }}>Base URL:</span> http://localhost:4100/api/v1</div>
+          <div><span style={{ color: C.onSurface }}>Auth:</span> X-API-Key: mk_live_...</div>
+          <div><span style={{ color: C.onSurface }}>Create Payment:</span> POST /payments</div>
+          <div><span style={{ color: C.onSurface }}>Check Status:</span> GET /payments/:id</div>
+          <div><span style={{ color: C.onSurface }}>Verify:</span> POST /payments/:id/verify</div>
+          <div><span style={{ color: C.onSurface }}>Checkout:</span> GET /checkout/:id</div>
+          <div><span style={{ color: C.onSurface }}>Webhook:</span> POST /api/webhook (merchant's endpoint)</div>
+          <div><span style={{ color: C.onSurface }}>Observers:</span> POST /observers/sms, POST /observers/gmail</div>
         </div>
       </div>
     </div>
