@@ -406,14 +406,20 @@ export default function App() {
                   </>
                 )}
 
+                    <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3 mt-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
+                        <span className="material-symbols-outlined text-primary text-[18px]">qr_code_scanner</span>
+                        <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Device Pairing QR</h3>
+                      </div>
+                      <PairingQR merchant={selected} apiKey={apiKeyInput} />
+                    </div>
+
                 {tab === 'branding' && (
                   <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-outline-variant/30">
                       <span className="material-symbols-outlined text-primary text-[18px]">palette</span>
                       <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Customer Checkout Sheet Styling</h3>
                     </div>
-                    <PairingQR merchant={selected} apiKey={apiKeyInput} />
-
                     <BrandingEditor merchant={selected} apiKey={apiKeyInput} />
                   </div>
                 )}
