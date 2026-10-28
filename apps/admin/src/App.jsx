@@ -57,11 +57,23 @@ export default function App() {
     setSelected(m);
     const key = localStorage.getItem('sk_apikey_' + m.id) || '';
     setApiKeyInput(key);
-    await loadAccounts(m.id, key);
+    setAccounts([]);
+    setErr('');
+    if (key) await loadAccounts(m.id, key);
   }
 
   async function loadAccounts(merchantId, key) {
-    if (!key) { setAccounts([]); return; }
+    if (!key) { setAccounts([]); setErr(''); return; }
+    // Verify key belongs to selected merchant
+    const meRes = await fetch(`${API}/merchants/me`, { headers: { 'X-API-Key': key } });
+    if (meRes.ok) {
+      const me = await meRes.json();
+      if (me.merchant.id !== merchantId) {
+        setErr('⚠️ API key belongs to "' + me.merchant.business_name + '", not "' + (merchants.find(m => m.id === merchantId)?.business_name || 'selected') + '". Accounts shown are for the key owner.');
+      } else {
+        setErr('');
+      }
+    }
     const r = await fetch(`${API}/payments/accounts`, { headers: { 'X-API-Key': key } });
     const j = await r.json();
     setAccounts(j.accounts || []);

@@ -1,6 +1,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { requireAdmin } from '../../../../packages/db/src/supabase.js';
+import { merchantAuth } from '../middleware/auth.js';
 import { generateRandomToken } from '../../../../packages/shared/src/crypto.js';
 
 const router = express.Router();
@@ -26,6 +27,11 @@ router.post('/', async (req, res) => {
     merchant: data,
     credentials: { api_key: apiKey, webhook_secret: webhookSecret }, // shown once
   });
+});
+
+// Get current merchant from API key
+router.get('/me', merchantAuth, async (req, res) => {
+  res.json({ merchant: req.merchant });
 });
 
 router.get('/', async (req, res) => {
