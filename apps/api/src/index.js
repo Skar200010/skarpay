@@ -28,7 +28,22 @@ const PORT = process.env.PORT || process.env.API_PORT || 4100;
 const HOST = process.env.API_HOST || '0.0.0.0';
 
 app.use(helmet());
-app.use(cors({ origin: true, credentials: true }));
+
+// CORS is open for local dev; set CORS_ORIGINS (comma-separated) in production
+// to lock browser access to the admin/checkout domains.
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json());
 // Serve SDK
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -1,13 +1,13 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { requireAdmin } from '../../../../packages/db/src/supabase.js';
-import { merchantAuth } from '../middleware/auth.js';
+import { adminAuth, isValidAdminKey, merchantAuth } from '../middleware/auth.js';
 import { generateRandomToken } from '../../../../packages/shared/src/crypto.js';
 
 const router = express.Router();
 
 // Create merchant (admin). Returns api_key + webhook_secret ONCE.
-router.post('/', async (req, res) => {
+router.post('/', adminAuth, async (req, res) => {
   const { business_name, webhook_url, owner_id } = req.body || {};
   if (!business_name) return res.status(400).json({ error: 'business_name required' });
   const supabase = requireAdmin();
@@ -21,7 +21,7 @@ router.post('/', async (req, res) => {
     webhook_url: webhook_url || null,
     owner_id: owner_id || null,
     branding: {},
-  }).select().single();
+  }).select('id,business_name,webhook_url,branding,is_active,created_at,updated_at,owner_id').single();
   if (error) return res.status(500).json({ error: error.message });
   res.status(201).json({
     merchant: data,
@@ -34,7 +34,7 @@ router.get('/me', merchantAuth, async (req, res) => {
   res.json({ merchant: req.merchant });
 });
 
-router.get('/', async (req, res) => {
+router.get('/', adminAuth, async (req, res) => {
   const supabase = requireAdmin();
   const { data, error } = await supabase.from('merchants').select('id,business_name,webhook_url,branding,is_active,created_at');
   if (error) return res.status(500).json({ error: error.message });
@@ -43,13 +43,19 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   const supabase = requireAdmin();
-  const { data, error } = await supabase.from('merchants').select('*').eq('id', req.params.id).single();
+  // Public callers (observer app) only get the merchant profile. Admin calls
+  // with a valid X-Admin-Key additionally get webhook config, but never secrets.
+  const isAdmin = isValidAdminKey(req.headers['x-admin-key']);
+  const fields = isAdmin
+    ? 'id,business_name,webhook_url,branding,is_active,created_at,updated_at'
+    : 'id,business_name,branding,is_active,created_at';
+  const { data, error } = await supabase.from('merchants').select(fields).eq('id', req.params.id).single();
   if (error || !data) return res.status(404).json({ error: 'not found' });
   res.json({ merchant: data });
 });
 
 // Regenerate API key (shown once)
-router.post('/:id/regenerate-key', async (req, res) => {
+router.post('/:id/regenerate-key', adminAuth, async (req, res) => {
   const supabase = requireAdmin();
   const { data: merchant } = await supabase.from('merchants').select('id').eq('id', req.params.id).single();
   if (!merchant) return res.status(404).json({ error: 'not found' });
@@ -59,7 +65,7 @@ router.post('/:id/regenerate-key', async (req, res) => {
   res.json({ api_key: apiKey, message: 'New API key generated. Save it — shown once.' });
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', adminAuth, async (req, res) => {
   const supabase = requireAdmin();
   const patch = {};
   if (req.body.business_name) patch.business_name = req.body.business_name;
@@ -67,7 +73,12 @@ router.put('/:id', async (req, res) => {
   if (req.body.branding) patch.branding = req.body.branding;
   if (req.body.is_active !== undefined) patch.is_active = req.body.is_active;
   patch.updated_at = new Date().toISOString();
-  const { data, error } = await supabase.from('merchants').update(patch).eq('id', req.params.id).select().single();
+  const { data, error } = await supabase
+    .from('merchants')
+    .update(patch)
+    .eq('id', req.params.id)
+    .select('id,business_name,webhook_url,branding,is_active,created_at,updated_at')
+    .single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ merchant: data });
 });

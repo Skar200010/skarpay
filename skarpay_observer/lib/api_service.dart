@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -194,8 +195,7 @@ class ApiService {
   }
 
   static String _hmacSha256(String key, String data) {
-    // Simple HMAC - in production use crypto package
-    // For now, return a placeholder
-    return 'hmac_$key${data.hashCode}';
+    final hmac = Hmac(sha256, utf8.encode(key));
+    return hmac.convert(utf8.encode(data)).toString();
   }
 }

@@ -1,21 +1,60 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { requireAdmin } from '../../../../packages/db/src/supabase.js';
-import { generateHmac, verifyHmac } from '../../../../packages/shared/src/crypto.js';
+import { verifyHmac } from '../../../../packages/shared/src/crypto.js';
 import { normalizeObservation } from '../services/normalizer.js';
 import { assertTransition } from '../services/state-machine.js';
 import { deliverWebhook } from '../services/webhook.service.js';
+import { adminAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+const SIGNATURE_MAX_AGE_MS = 5 * 60 * 1000;
 
 // POST /api/v1/observers/sms  (Android / SMS observer)
 router.post('/sms', async (req, res) => {
   const supabase = requireAdmin();
-  const { source, rawText, receivingAccountId, signature, timestamp, merchantId } = req.body || {};
+  const body = req.body || {};
+  const { source, rawText, receivingAccountId } = body;
+  const signature = body.signature || req.headers['x-device-signature'];
+  const timestamp = body.timestamp ?? req.headers['x-device-timestamp'];
+  const deviceId = body.deviceId || req.headers['x-device-id'];
+  const bodyMerchantId = body.merchantId || null;
   if (!rawText) return res.status(400).json({ error: 'rawText required' });
 
-  // Optional HMAC verification if deviceSecret provided
-  // (MVP: accept unsigned for testing; production should enforce.)
+  const requireSigned = process.env.REQUIRE_SIGNED_OBSERVERS !== 'false';
+
+  // Devices are identified by the id returned at pairing. The HMAC secret is
+  // stored server-side so a forged SMS cannot mark a payment as SUCCESS.
+  let device = null;
+  if (deviceId) {
+    const { data } = await supabase
+      .from('devices')
+      .select('*')
+      .eq('id', deviceId)
+      .eq('is_active', true)
+      .single();
+    device = data;
+  }
+
+  if (requireSigned) {
+    if (!device) return res.status(401).json({ error: 'Unknown or inactive device' });
+    if (!device.signing_key) return res.status(401).json({ error: 'Device must be re-paired' });
+    if (!signature || timestamp === undefined || timestamp === null) {
+      return res.status(401).json({ error: 'Missing device signature' });
+    }
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > SIGNATURE_MAX_AGE_MS) {
+      return res.status(401).json({ error: 'Stale or invalid timestamp' });
+    }
+    if (!verifyHmac(`${rawText}:${timestamp}`, device.signing_key, String(signature))) {
+      return res.status(401).json({ error: 'Invalid device signature' });
+    }
+  }
+
+  if (device && bodyMerchantId && device.merchant_id && String(bodyMerchantId) !== String(device.merchant_id)) {
+    return res.status(403).json({ error: 'Device/merchant mismatch' });
+  }
 
   const parsed = normalizeObservation(rawText);
   if (!parsed.amountPaise) return res.status(400).json({ error: 'could not parse amount' });
@@ -26,8 +65,12 @@ router.post('/sms', async (req, res) => {
     const { data } = await supabase.from('receiving_accounts').select('*').eq('id', receivingAccountId).single();
     account = data;
   }
+  if (device?.merchant_id && account?.merchant_id && String(account.merchant_id) !== String(device.merchant_id)) {
+    return res.status(403).json({ error: 'Account/device mismatch' });
+  }
 
-  const effectiveMerchantId = account?.merchant_id || merchantId || null;
+  const scopeMerchantId = device?.merchant_id || bodyMerchantId || null;
+  const effectiveMerchantId = account?.merchant_id || scopeMerchantId || null;
   console.log(
     `[observer] ${source || 'SMS'} amount=${parsed.amountPaise} utr=${parsed.utr || '-'} merchant=${effectiveMerchantId || '-'} raw="${String(rawText).replace(/\s+/g, ' ').slice(0, 90)}"`,
   );
@@ -61,10 +104,10 @@ router.post('/sms', async (req, res) => {
   // Prefer a merchant-scoped match when the account is unknown, then fall back
   // to any merchant so a mis-scoped pairing never blocks a valid payment.
   let session = null;
-  if (account || !merchantId) {
+  if (account || !scopeMerchantId) {
     session = (await baseQuery().single()).data;
   } else {
-    session = (await baseQuery().eq('merchant_id', merchantId).single()).data;
+    session = (await baseQuery().eq('merchant_id', scopeMerchantId).single()).data;
     if (!session) session = (await baseQuery().single()).data;
   }
 
@@ -105,8 +148,8 @@ router.post('/sms', async (req, res) => {
   res.json({ matched: false, parsed });
 });
 
-// POST /api/v1/observers/gmail
-router.post('/gmail', async (req, res) => {
+// POST /api/v1/observers/gmail (admin-only; no public ingestion yet)
+router.post('/gmail', adminAuth, async (req, res) => {
   req.body.source = 'GMAIL';
   // delegate to sms handler logic by re-running
   const { rawText, receivingAccountId } = req.body || {};

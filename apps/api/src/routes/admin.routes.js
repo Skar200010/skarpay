@@ -1,8 +1,12 @@
 import express from 'express';
 import { requireAdmin } from '../../../../packages/db/src/supabase.js';
+import { adminAuth } from '../middleware/auth.js';
 import { assertTransition } from '../services/state-machine.js';
 
 const router = express.Router();
+
+// Every counter/admin endpoint requires the console admin key.
+router.use(adminAuth);
 
 // List pending counter payments for cashier
 router.get('/counter-pending', async (req, res) => {
