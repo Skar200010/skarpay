@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://skarpay.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
