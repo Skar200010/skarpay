@@ -20,5 +20,8 @@
     "node": ">=22.0.0"
   },
   "author": "SkarPay",
-  "license": "Commercial"
+  "license": "Commercial",
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.24.0"
+  }
 }
