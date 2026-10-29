@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: skarpay-api
+    runtime: node
+    region: singapore
+    plan: starter
+    branch: master
+    buildCommand: npm install
+    startCommand: node apps/api/src/index.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      # Set these in the Render dashboard (sync: false prompts for them)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Public checkout URL (Vercel) - can be updated after frontend deploy
+      - key: CHECKOUT_URL
+        sync: false
+      - key: WHATSAPP_ENABLED
+        value: "false"

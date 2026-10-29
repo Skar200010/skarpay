@@ -23,7 +23,9 @@ initSupabase({
 });
 
 const app = express();
-const PORT = process.env.API_PORT || 4100;
+// Render/Railway inject PORT; local dev falls back to API_PORT/4100.
+const PORT = process.env.PORT || process.env.API_PORT || 4100;
+const HOST = process.env.API_HOST || '0.0.0.0';
 
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
@@ -49,8 +51,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'internal error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`[skarpay-api] listening on :${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`[skarpay-api] listening on ${HOST}:${PORT}`);
   startSweeper();
   console.log('[sweeper] started');
   startWebhookRetry();
