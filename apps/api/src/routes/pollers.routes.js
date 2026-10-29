@@ -12,7 +12,19 @@ router.post('/android/pair', async (req, res) => {
   // For MVP, accept any enrollment token and create a device
   const deviceSecret = generateRandomToken(32);
   const secretHash = crypto.createHash('sha256').update(deviceSecret).digest('hex');
-  const mid = merchantId || (await supabase.from('merchants').select('id').limit(1).single()).data?.id;
+
+  // Validate the requested merchant and fall back to the first merchant so a
+  // stale merchant id from a previous pairing can never fail the FK insert.
+  let mid = null;
+  if (merchantId) {
+    const { data: merchant } = await supabase.from('merchants').select('id').eq('id', merchantId).single();
+    mid = merchant?.id || null;
+  }
+  if (!mid) {
+    const { data: first } = await supabase.from('merchants').select('id').limit(1).single();
+    mid = first?.id || null;
+  }
+  if (!mid) return res.status(400).json({ error: 'no merchant available to pair with' });
 
   const { data, error } = await supabase.from('devices').insert({
     merchant_id: mid,

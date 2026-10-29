@@ -724,23 +724,7 @@ class PermissionsPage extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          _card(
-            title: 'Daemon Engine Health',
-            subtitle: '4 OF 4 OPTIMAL',
-            child: Column(
-              children: [
-                _permRow(Icons.sms, 'SMS Listener (RECEIVE/READ)', 'HDFCBK, SBIN, AXISBK, ICICIB', 'ACTIVE'),
-                _permRow(Icons.notifications, 'Notification Listener Service', 'Banking package hooks attached', 'ACTIVE'),
-                Row(
-                  children: [
-                    Expanded(child: _permChip('Doze Exemption', 'Battery Unrestricted', true)),
-                    const SizedBox(width: 8),
-                    Expanded(child: _permChip('Boot Auto-Start', 'BootReceiver Armed', true)),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          const _ObserverStatusCard(),
           const SizedBox(height: 12),
           _card(
             title: 'Pairing & Configuration',
@@ -820,16 +804,210 @@ class PermissionsPage extends StatelessWidget {
     );
   }
 
-  Widget _permRow(IconData icon, String title, String subtitle, String status) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+}
+
+// Live observer permission status (reads the real Android state).
+class _ObserverStatusCard extends StatefulWidget {
+  const _ObserverStatusCard();
+
+  @override
+  State<_ObserverStatusCard> createState() => _ObserverStatusCardState();
+}
+
+class _ObserverStatusCardState extends State<_ObserverStatusCard> with WidgetsBindingObserver {
+  bool _loading = true;
+  Map<String, dynamic> _status = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final s = await ApiService.getNativeStatus();
+    if (!mounted) return;
+    setState(() {
+      _status = s;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sms = _status['smsPermission'] == true;
+    final notif = _status['notificationAccess'] == true;
+    final battery = _status['batteryUnrestricted'] == true;
+    final paired = _status['paired'] == true;
+    final healthy = sms && notif && paired && battery;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFF171B26), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.2))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('Daemon Engine Health', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFDFE2F1))),
+              const Spacer(),
+              if (_loading)
+                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4EDEA3)))
+              else
+                Text(healthy ? 'ALL SYSTEMS GO' : 'ACTION REQUIRED', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: FontWeight.w500, color: healthy ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB))),
+              const SizedBox(width: 8),
+              GestureDetector(onTap: _refresh, child: const Icon(Icons.refresh, color: Color(0xFF908FA0), size: 16)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _statusRow(
+            icon: Icons.sms,
+            title: 'SMS Listener (RECEIVE/READ)',
+            subtitle: sms ? 'Ready to capture bank SMS' : 'Permission not granted',
+            ok: sms,
+            actionLabel: sms ? null : 'Grant',
+            onAction: () async {
+              await ApiService.requestSmsPermission();
+              await Future.delayed(const Duration(seconds: 1));
+              _refresh();
+            },
+          ),
+          const SizedBox(height: 8),
+          _statusRow(
+            icon: Icons.notifications,
+            title: 'Notification Listener Service',
+            subtitle: notif ? 'Bank push notifications enabled' : 'Enable notification access',
+            ok: notif,
+            actionLabel: notif ? null : 'Enable',
+            onAction: () async {
+              await ApiService.openNotificationSettings();
+            },
+          ),
+          const SizedBox(height: 8),
+          _statusRow(
+            icon: Icons.battery_saver,
+            title: 'Battery Optimization',
+            subtitle: battery ? 'Unrestricted — screen-off safe' : 'Optimized — may delay background events',
+            ok: battery,
+            actionLabel: battery ? null : 'Allow',
+            onAction: () async {
+              await ApiService.requestBatteryExemption();
+            },
+          ),
+          const SizedBox(height: 8),
+          _statusRow(
+            icon: Icons.phonelink_lock,
+            title: 'Device Pairing',
+            subtitle: paired ? 'Paired with SkarPay backend' : 'Not paired — use Settings or scan QR',
+            ok: paired,
+          ),
+          const SizedBox(height: 10),
+          _diagnostics(),
+        ],
+      ),
+    );
+  }
+
+  Widget _diagnostics() {
+    final baseUrl = _status['baseUrl'] as String?;
+    final lastSms = _status['lastSmsText'] as String?;
+    final lastSmsBankLike = _status['lastSmsBankLike'] == true;
+    final lastNotif = _status['lastNotificationText'] as String?;
+    final lastNotifBankLike = _status['lastNotificationBankLike'] == true;
+    final lastSendOk = _status['lastSendOk'] == true;
+    final lastSendDetail = _status['lastSendDetail'] as String?;
+    final lastSendSource = _status['lastSendSource'] as String?;
+
+    Widget line(String label, String value, {Color? color}) => Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, color: Color(0xFF908FA0)),
+              children: [
+                TextSpan(text: '$label: ', style: const TextStyle(color: Color(0xFFC0C1FF))),
+                TextSpan(text: value, style: TextStyle(color: color)),
+              ],
+            ),
+          ),
+        );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0E18).withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('LAST OBSERVED EVENTS', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 9, letterSpacing: 1.2, color: Color(0xFF908FA0))),
+          const SizedBox(height: 6),
+          line('Base URL', baseUrl?.isNotEmpty == true ? baseUrl! : 'not set', color: baseUrl?.isNotEmpty == true ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB)),
+          line(
+            'Last SMS',
+            lastSms == null || lastSms.isEmpty
+                ? 'never received'
+                : '${_ago(_status['lastSmsAt'])} · ${lastSmsBankLike ? 'bank-like ✅' : 'filtered out ❌'} · ${_short(lastSms)}',
+            color: lastSmsBankLike ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB),
+          ),
+          line(
+            'Last push',
+            lastNotif == null || lastNotif.isEmpty
+                ? 'never received'
+                : '${_ago(_status['lastNotificationAt'])} · ${lastNotifBankLike ? 'bank-like ✅' : 'filtered out ❌'} · ${_short(lastNotif)}',
+            color: lastNotifBankLike ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB),
+          ),
+          line(
+            'Last send',
+            _status['lastSendAt'] == null || (_status['lastSendAt'] as int? ?? 0) == 0
+                ? 'never attempted'
+                : '${_ago(_status['lastSendAt'])} · ${lastSendSource ?? '—'} · ${lastSendOk ? 'OK ✅' : 'FAILED ❌'} ${lastSendDetail ?? ''}',
+            color: lastSendOk ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _ago(dynamic ms) {
+    if (ms is! int || ms <= 0) return 'never';
+    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(ms));
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  String _short(String text) {
+    final clean = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return clean.length <= 110 ? clean : '${clean.substring(0, 107)}...';
+  }
+
+  Widget _statusRow({required IconData icon, required String title, required String subtitle, required bool ok, String? actionLabel, VoidCallback? onAction}) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: const Color(0xFF0A0E18).withValues(alpha: 0.6), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.15))),
       child: Row(
         children: [
           Container(
             width: 28,
             height: 28,
-            decoration: BoxDecoration(color: const Color(0xFF4EDEA3).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-            child: Icon(icon, color: const Color(0xFF4EDEA3), size: 16),
+            decoration: BoxDecoration(color: (ok ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB)).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+            child: Icon(icon, color: ok ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB), size: 16),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -841,33 +1019,21 @@ class PermissionsPage extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: const Color(0xFF4EDEA3).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFF4EDEA3).withValues(alpha: 0.25))),
-            child: Text(status, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: FontWeight.w500, color: Color(0xFF4EDEA3))),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _permChip(String title, String subtitle, bool ok) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: const Color(0xFF0A0E18).withValues(alpha: 0.9), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF464554).withValues(alpha: 0.15))),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFFDFE2F1))),
-                Text(subtitle, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 9, color: Color(0xFF908FA0))),
-              ],
+          if (actionLabel != null && onAction != null)
+            GestureDetector(
+              onTap: onAction,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFC0C1FF).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: const Color(0xFFC0C1FF).withValues(alpha: 0.3))),
+                child: Text(actionLabel, style: const TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFC0C1FF))),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: (ok ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB)).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: (ok ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB)).withValues(alpha: 0.25))),
+              child: Text(ok ? 'ACTIVE' : 'MISSING', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: FontWeight.w500, color: ok ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB))),
             ),
-          ),
-          Icon(Icons.check_circle, color: ok ? const Color(0xFF4EDEA3) : const Color(0xFFFFB4AB), size: 16),
         ],
       ),
     );

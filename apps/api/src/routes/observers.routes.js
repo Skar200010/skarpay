@@ -11,7 +11,7 @@ const router = express.Router();
 // POST /api/v1/observers/sms  (Android / SMS observer)
 router.post('/sms', async (req, res) => {
   const supabase = requireAdmin();
-  const { source, rawText, receivingAccountId, signature, timestamp } = req.body || {};
+  const { source, rawText, receivingAccountId, signature, timestamp, merchantId } = req.body || {};
   if (!rawText) return res.status(400).json({ error: 'rawText required' });
 
   // Optional HMAC verification if deviceSecret provided
@@ -27,10 +27,15 @@ router.post('/sms', async (req, res) => {
     account = data;
   }
 
+  const effectiveMerchantId = account?.merchant_id || merchantId || null;
+  console.log(
+    `[observer] ${source || 'SMS'} amount=${parsed.amountPaise} utr=${parsed.utr || '-'} merchant=${effectiveMerchantId || '-'} raw="${String(rawText).replace(/\s+/g, ' ').slice(0, 90)}"`,
+  );
+
   // Store observation
   const clusterHash = crypto.createHash('sha256').update(`${account?.id || ''}:${parsed.amountPaise}:${parsed.utr || ''}`).digest('hex');
   await supabase.from('observations').insert({
-    merchant_id: account?.merchant_id || null,
+    merchant_id: effectiveMerchantId,
     source: source || 'SMS',
     raw_text: rawText,
     parsed_amount_paise: parsed.amountPaise,
@@ -40,25 +45,34 @@ router.post('/sms', async (req, res) => {
   });
 
   // Match to active session
-  // If no specific account, search across all active sessions with matching amount
-  let sessionQuery = supabase
-    .from('payment_sessions')
-    .select('*')
-    .eq('amount_paise', parsed.amountPaise)
-    .eq('status', 'ACTIVE')
-    .order('created_at', { ascending: true })
-    .limit(1);
+  // If no specific account, search across all active sessions with matching amount.
+  const baseQuery = () => {
+    let q = supabase
+      .from('payment_sessions')
+      .select('*')
+      .eq('amount_paise', parsed.amountPaise)
+      .in('status', ['ACTIVE', 'PROCESSING', 'QUEUED'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (account) q = q.eq('receiving_account_id', account.id);
+    return q;
+  };
 
-  if (account) {
-    sessionQuery = sessionQuery.eq('receiving_account_id', account.id);
+  // Prefer a merchant-scoped match when the account is unknown, then fall back
+  // to any merchant so a mis-scoped pairing never blocks a valid payment.
+  let session = null;
+  if (account || !merchantId) {
+    session = (await baseQuery().single()).data;
+  } else {
+    session = (await baseQuery().eq('merchant_id', merchantId).single()).data;
+    if (!session) session = (await baseQuery().single()).data;
   }
 
-  const { data: session } = await sessionQuery.single();
-
   if (session) {
-      assertTransition('ACTIVE', 'SUCCESS');
+      console.log(`[observer] matched session ${session.id} amount=${session.amount_paise} status=${session.status} -> SUCCESS`);
+      assertTransition(session.status === 'QUEUED' ? 'ACTIVE' : session.status, 'SUCCESS');
       await supabase.from('payment_sessions').update({ status: 'SUCCESS', utr: parsed.utr }).eq('id', session.id);
-      if (account) await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
+      if (session.receiving_account_id) await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', session.receiving_account_id);
       await supabase.from('audit_logs').insert({ session_id: session.id, event_type: 'OBSERVER_MATCH', details: { source, utr: parsed.utr, amount: parsed.amountPaise } });
 
       // webhook
@@ -87,6 +101,7 @@ router.post('/sms', async (req, res) => {
       return res.json({ matched: true, sessionId: session.id, status: 'SUCCESS' });
     }
 
+  console.log(`[observer] no matching session for amount=${parsed.amountPaise} merchant=${effectiveMerchantId || '-'}`);
   res.json({ matched: false, parsed });
 });
 
@@ -118,13 +133,14 @@ router.post('/gmail', async (req, res) => {
     cluster_hash: clusterHash,
   });
   if (account) {
-    let sq = supabase.from('payment_sessions').select('*').eq('amount_paise', parsed.amountPaise).eq('status', 'ACTIVE').order('created_at', { ascending: true }).limit(1);
+    let sq = supabase.from('payment_sessions').select('*').eq('amount_paise', parsed.amountPaise).in('status', ['ACTIVE', 'PROCESSING', 'QUEUED']).order('created_at', { ascending: false }).limit(1);
     if (account) sq = sq.eq('receiving_account_id', account.id);
     const { data: session } = await sq.single();
     if (session) {
-      assertTransition('ACTIVE', 'SUCCESS');
+      console.log(`[observer] matched session ${session.id} amount=${session.amount_paise} status=${session.status} -> SUCCESS`);
+      assertTransition(session.status === 'QUEUED' ? 'ACTIVE' : session.status, 'SUCCESS');
       await supabase.from('payment_sessions').update({ status: 'SUCCESS', utr: parsed.utr }).eq('id', session.id);
-      if (account) await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
+      if (session.receiving_account_id) await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', session.receiving_account_id);
       await supabase.from('audit_logs').insert({ session_id: session.id, event_type: 'OBSERVER_MATCH', details: { source: 'GMAIL', utr: parsed.utr } });
       return res.json({ matched: true, sessionId: session.id, status: 'SUCCESS' });
     }

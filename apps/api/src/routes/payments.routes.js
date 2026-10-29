@@ -111,6 +111,45 @@ router.post('/', async (req, res) => {
   }
   if (!account) return res.status(400).json({ error: 'no receiving account configured' });
 
+  // Housekeeping: expire stale sessions and free their slot. Without this a
+  // single abandoned demo attempt leaves is_slot_busy=true forever, so every
+  // later payment is QUEUED (never ACTIVE) and the observer can never match it.
+  const nowIso = new Date().toISOString();
+  const { data: staleActive } = await supabase
+    .from('payment_sessions')
+    .select('id')
+    .eq('receiving_account_id', account.id)
+    .eq('status', 'ACTIVE')
+    .lt('expires_at', nowIso);
+  if (staleActive?.length) {
+    await supabase.from('payment_sessions').update({ status: 'EXPIRED' }).in('id', staleActive.map((s) => s.id));
+    await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
+    account.is_slot_busy = false;
+  }
+  const { data: staleProcessing } = await supabase
+    .from('payment_sessions')
+    .select('id')
+    .eq('receiving_account_id', account.id)
+    .eq('status', 'PROCESSING')
+    .lt('processing_expires_at', nowIso);
+  if (staleProcessing?.length) {
+    await supabase.from('payment_sessions').update({ status: 'FAILED' }).in('id', staleProcessing.map((s) => s.id));
+    await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
+    account.is_slot_busy = false;
+  }
+  if (account.is_slot_busy) {
+    const { data: live } = await supabase
+      .from('payment_sessions')
+      .select('id')
+      .eq('receiving_account_id', account.id)
+      .in('status', ['ACTIVE', 'PROCESSING'])
+      .limit(1);
+    if (!live?.length) {
+      await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', account.id);
+      account.is_slot_busy = false;
+    }
+  }
+
   // Fraud check
   if (customer && customer.phone) {
     const banned = await isBanned(customer.phone);
@@ -207,6 +246,7 @@ router.post('/:id/verify', async (req, res) => {
   const supabase = requireAdmin();
   const { data: session, error } = await supabase.from('payment_sessions').select('*').eq('id', req.params.id).eq('merchant_id', req.merchant.id).single();
   if (error || !session) return res.status(404).json({ error: 'not found' });
+  if (session.status === 'SUCCESS') return res.json({ status: 'SUCCESS', utr: session.utr || utr || null });
 
   // amount check
   let observedPaise = session.amount_paise;
@@ -220,7 +260,7 @@ router.post('/:id/verify', async (req, res) => {
     return res.json({ status: 'FAILED', reason: 'amount mismatch' });
   }
 
-  assertTransition(session.status, 'SUCCESS');
+  assertTransition(session.status === 'QUEUED' ? 'ACTIVE' : session.status, 'SUCCESS');
   await supabase.from('payment_sessions').update({ status: 'SUCCESS', utr: utr || null }).eq('id', session.id);
   await supabase.from('audit_logs').insert({ session_id: session.id, event_type: 'VERIFY_SUCCESS', details: { utr } });
 

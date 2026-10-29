@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
 import QRCode from 'qrcode';
 
+function defaultServerUrl() {
+  const host = typeof window !== 'undefined' ? window.location.hostname : '';
+  // When the admin panel is opened over LAN, its hostname already is the
+  // machine's LAN IP. Fall back to the current dev machine IP on localhost.
+  if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    return `http://${host}:4100`;
+  }
+  return 'http://192.168.0.102:4100';
+}
+
 export default function PairingQR({ merchant, apiKey }) {
   const [qrUrl, setQrUrl] = useState(null);
   const [token, setToken] = useState('');
-  const [serverUrl, setServerUrl] = useState('http://192.168.0.103:4100');
+  const [serverUrl, setServerUrl] = useState(defaultServerUrl);
 
   async function generate() {
     if (!merchant) return;
@@ -24,7 +34,6 @@ export default function PairingQR({ merchant, apiKey }) {
 
   return (
     <div style={{ background: '#0b0f19', border: '1px solid #263047', borderRadius: 8, padding: 16, marginTop: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#e2e7f5', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Device Pairing QR</div>
       <div style={{ fontSize: 10, color: '#8e99b5', marginBottom: 12 }}>Generate a QR code for the Android observer app to scan and auto-pair.</div>
       <div style={{ marginBottom: 8 }}>
         <label style={{ fontSize: 10, color: '#8e99b5', display: 'block', marginBottom: 4 }}>Server URL (your computer's IP)</label>
@@ -50,7 +59,7 @@ export default function PairingQR({ merchant, apiKey }) {
         <div style={{ textAlign: 'center' }}>
           <img src={qrUrl} alt="Pairing QR" style={{ borderRadius: 8, border: '1px solid #263047' }} />
           <div style={{ fontSize: 10, color: '#8e99b5', marginTop: 8, fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all' }}>
-            Base URL: {window.location.origin.replace('5173', '4100')}<br />
+            Base URL: {serverUrl}<br />
             Token: {token || 'enroll-' + merchant.id.slice(0, 8)}<br />
             Merchant: {merchant.id}
           </div>

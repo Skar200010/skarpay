@@ -26,6 +26,7 @@ export default function App() {
   const [keyValid, setKeyValid] = useState(null);
   const [payments, setPayments] = useState([]);
   const [showProvision, setShowProvision] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   async function loadMerchants() {
     try {
@@ -35,6 +36,19 @@ export default function App() {
     } catch (e) { setErr('Failed to load merchants'); }
   }
   useEffect(() => { loadMerchants(); }, []);
+
+  useEffect(() => {
+    function handler(e) {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.type === 'skarpay:success' || e.data.type === 'skarpay:failed') {
+        if (apiKeyInput) loadPayments(apiKeyInput);
+        // close modal after a short delay
+        setTimeout(() => setCheckoutUrl(null), 1200);
+      }
+    }
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [apiKeyInput]);
 
   async function loadPayments(key) {
     if (!key) return;
@@ -142,7 +156,7 @@ export default function App() {
       });
       const j = await r.json();
       if (!r.ok) { setErr(j.error || 'Failed'); return; }
-      window.open(j.checkoutUrl, '_blank');
+      setCheckoutUrl(j.checkoutUrl);
       loadPayments(apiKeyInput);
     } catch (e) { setErr('Network error'); }
   }
@@ -506,6 +520,16 @@ export default function App() {
           </div>
         </aside>
       </div>
+
+      {/* Checkout Modal */}
+      {checkoutUrl && (
+        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4" onClick={() => setCheckoutUrl(null)}>
+          <div className="relative w-full max-w-5xl h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setCheckoutUrl(null)} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70">✕</button>
+            <iframe src={checkoutUrl} className="w-full h-full border-0" title="Checkout" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
+  static const MethodChannel _channel = MethodChannel('skarpay/observer');
   static const String _keyBaseUrl = 'base_url';
   static const String _keyDeviceSecret = 'device_secret';
   static const String _keyDeviceId = 'device_id';
@@ -53,13 +55,43 @@ class ApiService {
     return secret != null && secret.isNotEmpty;
   }
 
+  // Native permission / listener status
+  static Future<Map<String, dynamic>> getNativeStatus() async {
+    try {
+      final res = await _channel.invokeMethod<Map>('getStatus');
+      return Map<String, dynamic>.from(res ?? const {});
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> requestSmsPermission() async {
+    try {
+      await _channel.invokeMethod('requestSmsPermission');
+    } catch (_) {}
+  }
+
+  static Future<void> openNotificationSettings() async {
+    try {
+      await _channel.invokeMethod('openNotificationSettings');
+    } catch (_) {}
+  }
+
+  static Future<void> requestBatteryExemption() async {
+    try {
+      await _channel.invokeMethod('requestIgnoreBatteryOptimizations');
+    } catch (_) {}
+  }
+
   // Pair device with SkarPay
   static Future<Map<String, dynamic>> pair({
     required String baseUrl,
     required String enrollmentToken,
     required String deviceName,
+    String? merchantId,
   }) async {
     final url = '$baseUrl/api/v1/pollers/android/pair';
+    final effectiveMerchantId = merchantId ?? await getMerchantId();
     final response = await http.post(
       Uri.parse(url),
       headers: {'Content-Type': 'application/json'},
@@ -67,6 +99,7 @@ class ApiService {
         'enrollmentToken': enrollmentToken,
         'deviceName': deviceName,
         'deviceModel': 'Flutter Device',
+        if (effectiveMerchantId != null && effectiveMerchantId.isNotEmpty) 'merchantId': effectiveMerchantId,
       }),
     );
     if (response.statusCode == 200) {
