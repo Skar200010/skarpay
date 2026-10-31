@@ -7,18 +7,17 @@ function defaultServerUrl() {
 
   const host = typeof window !== 'undefined' ? window.location.hostname : '';
 
-  // Hosted admin (HTTPS) lives on a different origin than the API, so do not
-  // guess. Require the operator to enter the public API URL explicitly.
+  // On Vercel/HTTPS use the Render API by default
   if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return '';
+    return 'https://skarpay.onrender.com';
   }
 
   // When the admin panel is opened over LAN, its hostname already is the
-  // machine's LAN IP. Fall back to the current dev machine IP on localhost.
+  // machine's LAN IP.
   if (host && host !== 'localhost' && host !== '127.0.0.1') {
     return `http://${host}:4100`;
   }
-  return 'http://192.168.0.102:4100';
+  return 'http://localhost:4100';
 }
 
 export default function PairingQR({ merchant }) {
@@ -106,11 +105,9 @@ export default function PairingQR({ merchant }) {
       )}
       {qrUrl && (
         <div style={{ textAlign: 'center' }}>
-          <img src={qrUrl} alt="Pairing QR" style={{ borderRadius: 8, border: '1px solid #263047' }} />
-          <div style={{ fontSize: 10, color: '#8e99b5', marginTop: 8, fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-all' }}>
-            Base URL: {serverUrl}<br />
-            Token: {token}<br />
-            Merchant: {merchant.id}
+          <img src={qrUrl} alt="Pairing QR" style={{ borderRadius: 8, border: '1px solid #263047', background: '#fff', padding: 8 }} />
+          <div style={{ fontSize: 10, color: '#8e99b5', marginTop: 10 }}>
+            Scan this QR with the SkarPay Observer app
           </div>
         </div>
       )}
