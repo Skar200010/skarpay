@@ -5,7 +5,7 @@ import { verifyHmac } from '../../../../packages/shared/src/crypto.js';
 import { normalizeObservation } from '../services/normalizer.js';
 import { assertTransition } from '../services/state-machine.js';
 import { deliverWebhook } from '../services/webhook.service.js';
-import { adminAuth } from '../middleware/auth.js';
+import { adminAuth, isValidAdminKey } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -23,6 +23,8 @@ router.post('/sms', async (req, res) => {
   if (!rawText) return res.status(400).json({ error: 'rawText required' });
 
   const requireSigned = process.env.REQUIRE_SIGNED_OBSERVERS !== 'false';
+  // Allow admin console to simulate bank SMS without a paired device/HMAC
+  const allowAdminSim = isValidAdminKey(req.headers['x-admin-key']);
 
   // Devices are identified by the id returned at pairing. The HMAC secret is
   // stored server-side so a forged SMS cannot mark a payment as SUCCESS.
@@ -37,7 +39,7 @@ router.post('/sms', async (req, res) => {
     device = data;
   }
 
-  if (requireSigned) {
+  if (requireSigned && !allowAdminSim) {
     if (!device) return res.status(401).json({ error: 'Unknown or inactive device' });
     if (!device.signing_key) return res.status(401).json({ error: 'Device must be re-paired' });
     if (!signature || timestamp === undefined || timestamp === null) {
