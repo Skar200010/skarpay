@@ -731,7 +731,7 @@ class PermissionsPage extends StatelessWidget {
             subtitle: null,
             child: Column(
               children: [
-                _infoRow('Merchant', _merchant?['business_name']?.toString() ?? 'Not paired', null),
+                _infoRow('Merchant', 'See Dashboard', null),
                 _infoRow('Device Hardware', 'Pixel 8 Pro (Terminal-01)', null),
                 const SizedBox(height: 8),
                 Container(
