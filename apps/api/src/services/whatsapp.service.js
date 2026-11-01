@@ -9,15 +9,20 @@ let currentQR = null;
 let qrDataUrl = null;
 
 export function initWhatsApp() {
+  if (process.env.DISABLE_WHATSAPP === 'true') {
+    console.log('[whatsapp] disabled by DISABLE_WHATSAPP=true');
+    return null;
+  }
   if (client) return client;
   
-  client = new Client({
-    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
-    puppeteer: {
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
-  });
+  try {
+    client = new Client({
+      authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
+      puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+      }
+    });
 
   client.on('qr', async (qr) => {
     currentQR = qr;
@@ -56,8 +61,14 @@ export function initWhatsApp() {
     client = null;
   });
 
-  client.initialize();
-  return client;
+    client.initialize();
+    return client;
+  } catch (e) {
+    console.log('[whatsapp] init failed, skipping:', e.message);
+    client = null;
+    ready = false;
+    return null;
+  }
 }
 
 export function getWhatsAppStatus() {
