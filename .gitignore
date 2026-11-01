@@ -5,3 +5,12 @@ dist/
 .DS_Store
 Thumbs.db
 data/
+
+# WhatsApp Web session state (contains credentials)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Local scratch scripts / captured API output
+merchants.json
+add_pending.mjs
+approve_pending.mjs

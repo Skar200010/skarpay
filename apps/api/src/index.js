@@ -12,15 +12,22 @@ import observerRoutes from './routes/observers.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import customerRoutes from './routes/customers.routes.js';
 import pollersRoutes from './routes/pollers.routes.js';
+import merchantAuthRoutes from './routes/merchant-auth.routes.js';
+import merchantPanelRoutes from './routes/merchant-panel.routes.js';
+import whatsappRoutes from './routes/whatsapp.routes.js';
+import { initWhatsApp } from './services/whatsapp.service.js';
 import { startSweeper } from './services/sweeper.js';
 import { startWebhookRetry } from './services/webhook-retry.js';
-import { initWhatsApp } from './services/whatsapp.service.js';
 
-initSupabase({
-  url: process.env.SUPABASE_URL,
-  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  anonKey: process.env.SUPABASE_ANON_KEY,
-});
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  initSupabase({
+    url: process.env.SUPABASE_URL,
+    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    anonKey: process.env.SUPABASE_ANON_KEY,
+  });
+} else {
+  console.error('Missing Supabase env vars');
+}
 
 const app = express();
 // Render/Railway inject PORT; local dev falls back to API_PORT/4100.
@@ -54,6 +61,9 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/v1/merchants', merchantRoutes);
+app.use('/api/v1/merchant-auth', merchantAuthRoutes);
+app.use('/api/v1/merchant-panel', merchantPanelRoutes);
+app.use('/api/v1/whatsapp', whatsappRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/checkout', checkoutRoutes);
 app.use('/api/v1/observers', observerRoutes);
@@ -68,11 +78,27 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, HOST, () => {
   console.log(`[skarpay-api] listening on ${HOST}:${PORT}`);
-  startSweeper();
-  console.log('[sweeper] started');
-  startWebhookRetry();
-  console.log('[webhook-retry] started');
-  initWhatsApp();
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      startSweeper();
+      console.log('[sweeper] started');
+    } catch (e) {
+      console.log('[sweeper] skipped:', e.message);
+    }
+    try {
+      startWebhookRetry();
+      console.log('[webhook-retry] started');
+    } catch (e) {
+      console.log('[webhook-retry] skipped:', e.message);
+    }
+  } else {
+    console.log('[warn] Skipping sweeper/webhook-retry - Missing Supabase env vars');
+  }
+  try {
+    initWhatsApp();
+  } catch (e) {
+    console.log('[whatsapp] skipped:', e.message);
+  }
 });
 
 export default app;

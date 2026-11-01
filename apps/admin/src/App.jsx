@@ -3,6 +3,7 @@ import BrandingEditor from './BrandingEditor.jsx';
 import PaymentsView from './PaymentsView.jsx';
 import SettingsView from './SettingsView.jsx';
 import PairingQR from './PairingQR.jsx';
+import WhatsAppConnect from './WhatsAppConnect.jsx';
 
 const API = '/api/v1';
 
@@ -30,12 +31,36 @@ export default function App() {
 
   async function loadMerchants() {
     try {
-      const r = await fetch(`${API}/merchants`);
+      const adminKey = localStorage.getItem('sk_admin_key') || 'sk_test_admin_123456789';
+      const r = await fetch(`${API}/merchants`, { headers: { 'x-admin-key': adminKey } });
       const j = await r.json();
       setMerchants(j.merchants || []);
     } catch (e) { setErr('Failed to load merchants'); }
   }
   useEffect(() => { loadMerchants(); }, []);
+
+  async function approveMerchant(id) {
+    try {
+      const adminKey = localStorage.getItem('sk_admin_key') || 'sk_test_admin_123456789';
+      const r = await fetch(`${API}/merchants/${id}/approve`, { method: 'POST', headers: { 'x-admin-key': adminKey } });
+      const j = await r.json();
+      if (!r.ok) { setErr(j.error || 'Failed to approve'); return; }
+      setErr('✅ Merchant approved successfully');
+      await loadMerchants();
+    } catch (e) { setErr('Network error'); }
+  }
+
+  async function rejectMerchant(id) {
+    if (!confirm('Reject this merchant? They will not be able to login.')) return;
+    try {
+      const adminKey = localStorage.getItem('sk_admin_key') || 'sk_test_admin_123456789';
+      const r = await fetch(`${API}/merchants/${id}/reject`, { method: 'POST', headers: { 'x-admin-key': adminKey } });
+      const j = await r.json();
+      if (!r.ok) { setErr(j.error || 'Failed to reject'); return; }
+      setErr('❌ Merchant rejected');
+      await loadMerchants();
+    } catch (e) { setErr('Network error'); }
+  }
 
   useEffect(() => {
     function handler(e) {
@@ -195,6 +220,11 @@ export default function App() {
             <span className="material-symbols-outlined text-[14px]">add</span>
             <span>Register Merchant</span>
           </button>
+          <button onClick={() => { setTab('pending'); setSelected(null); loadMerchants(); }} className="h-7 px-3 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 font-mono font-semibold text-[11px] flex items-center gap-1.5 shadow-sm hover:bg-amber-500/30 active:scale-[0.98] transition-all">
+            <span className="material-symbols-outlined text-[14px]">pending_actions</span>
+            <span>Pending Approvals</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-amber-500/30 text-[9px]">{merchants.filter(m => m.status === 'PENDING').length}</span>
+          </button>
           <div className="w-6 h-6 rounded bg-primary-container text-white font-mono font-bold text-[10px] flex items-center justify-center ring-1 ring-primary/40">SA</div>
         </div>
       </header>
@@ -285,7 +315,36 @@ export default function App() {
 
         {/* Center: Merchant Detail */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#0a0d15] overflow-y-auto custom-scrollbar">
-          {selected ? (
+          {tab === 'pending' ? (
+            <div className="p-4 space-y-4">
+              <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-amber-400 text-[18px]">pending_actions</span>
+                    <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Pending Merchant Approvals</h3>
+                  </div>
+                  <button onClick={loadMerchants} className="px-2 py-1 rounded bg-surface-container-high text-white text-[10px] font-mono hover:bg-surface-container-highest">Refresh</button>
+                </div>
+                <div className="space-y-2">
+                  {merchants.filter(m => m.status === 'PENDING' || m.is_active === false).map(m => (
+                    <div key={m.id} className="p-3 rounded bg-surface-container-low border border-amber-500/30 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-white text-sm">{m.business_name}</div>
+                        <div className="font-mono text-[10px] text-on-surface-variant">Mobile: {m.mobile || '-'} | Email: {m.email || '-'} | ID: {m.id.slice(0,8)}...</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => approveMerchant(m.id)} className="px-3 py-1 rounded bg-tertiary/20 text-tertiary border border-tertiary/40 text-[10px] font-mono font-semibold hover:bg-tertiary/30">Approve</button>
+                        <button onClick={() => rejectMerchant(m.id)} className="px-3 py-1 rounded bg-error/20 text-error border border-error/40 text-[10px] font-mono font-semibold hover:bg-error/30">Reject</button>
+                      </div>
+                    </div>
+                  ))}
+                  {merchants.filter(m => m.status === 'PENDING' || m.is_active === false).length === 0 && (
+                    <div className="text-center font-mono text-[11px] text-on-surface-variant py-6">No pending approvals</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : selected ? (
             <>
               <div className="p-4 bg-surface-container-lowest/80 border-b border-outline-variant/40 sticky top-0 backdrop-blur-md z-20">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -308,6 +367,7 @@ export default function App() {
                 <div className="flex items-center gap-1 mt-3 border-b border-outline-variant/40">
                   {[
                     { id: 'credentials', label: 'Credentials & VPAs', icon: 'key' },
+                    { id: 'whatsapp', label: 'WhatsApp OTP', icon: 'chat' },
                     { id: 'branding', label: 'Branding', icon: 'palette' },
                     { id: 'payments', label: 'Payments', icon: 'payments' },
                     { id: 'settings', label: 'Settings', icon: 'settings' },
@@ -445,6 +505,12 @@ export default function App() {
                       <h3 className="font-headline font-bold text-white text-xs uppercase tracking-wider">Payment Stream</h3>
                     </div>
                     <PaymentsView apiKey={apiKeyInput} />
+                  </div>
+                )}
+
+                {tab === 'whatsapp' && (
+                  <div className="p-3.5 rounded-lg bg-surface-container-lowest border border-outline-variant/50 space-y-3">
+                    <WhatsAppConnect />
                   </div>
                 )}
 

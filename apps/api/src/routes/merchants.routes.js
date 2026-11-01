@@ -65,6 +65,34 @@ router.post('/:id/regenerate-key', adminAuth, async (req, res) => {
   res.json({ api_key: apiKey, message: 'New API key generated. Save it — shown once.' });
 });
 
+// Approve merchant
+router.post('/:id/approve', adminAuth, async (req, res) => {
+  const supabase = requireAdmin();
+  const { data, error } = await supabase
+    .from('merchants')
+    .update({ status: 'APPROVED', is_active: true, updated_at: new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select('id,business_name,mobile,email,status,is_active')
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'not found' });
+  res.json({ merchant: data, message: 'Merchant approved' });
+});
+
+// Reject/disable merchant
+router.post('/:id/reject', adminAuth, async (req, res) => {
+  const supabase = requireAdmin();
+  const { data, error } = await supabase
+    .from('merchants')
+    .update({ status: 'REJECTED', is_active: false, updated_at: new Date().toISOString() })
+    .eq('id', req.params.id)
+    .select('id,business_name,mobile,email,status,is_active')
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: 'not found' });
+  res.json({ merchant: data, message: 'Merchant rejected' });
+});
+
 router.put('/:id', adminAuth, async (req, res) => {
   const supabase = requireAdmin();
   const patch = {};
@@ -72,6 +100,7 @@ router.put('/:id', adminAuth, async (req, res) => {
   if (req.body.webhook_url !== undefined) patch.webhook_url = req.body.webhook_url;
   if (req.body.branding) patch.branding = req.body.branding;
   if (req.body.is_active !== undefined) patch.is_active = req.body.is_active;
+  if (req.body.status) patch.status = req.body.status;
   patch.updated_at = new Date().toISOString();
   const { data, error } = await supabase
     .from('merchants')

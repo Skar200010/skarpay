@@ -1,60 +1,118 @@
-import { requireAdmin } from '../../../../packages/db/src/supabase.js';
+import pkg from 'whatsapp-web.js';
+const { Client, LocalAuth } = pkg;
+import qrcode from 'qrcode-terminal';
+import QRCode from 'qrcode';
 
-let sock = null;
-let isConnected = false;
+let client = null;
+let ready = false;
+let currentQR = null;
+let qrDataUrl = null;
 
-// Lazy import baileys
-async function loadBaileys() {
-  try {
-    const mod = await import('baileys');
-    return mod;
-  } catch (e) {
-    console.warn('[whatsapp] baileys not installed:', e.message);
-    return null;
-  }
-}
-
-export async function initWhatsApp() {
-  if (process.env.WHATSAPP_ENABLED !== 'true') {
-    console.log('[whatsapp] disabled (set WHATSAPP_ENABLED=true to enable)');
-    return;
-  }
-  const baileys = await loadBaileys();
-  if (!baileys) return;
-
-  const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = baileys;
-  const { state, saveCreds } = await useMultiFileAuthState('./data/whatsapp-auth');
-
-  sock = makeWASocket({ auth: state, printQRInTerminal: true });
-  sock.ev.on('creds.update', saveCreds);
-  sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect } = update;
-    if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('[whatsapp] connection closed, reconnect:', shouldReconnect);
-      if (shouldReconnect) initWhatsApp();
-    } else if (connection === 'open') {
-      isConnected = true;
-      console.log('[whatsapp] connected');
+export function initWhatsApp() {
+  if (client) return client;
+  
+  client = new Client({
+    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
+    puppeteer: {
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     }
   });
+
+  client.on('qr', async (qr) => {
+    currentQR = qr;
+    ready = false;
+    try {
+      qrDataUrl = await QRCode.toDataURL(qr);
+    } catch (e) {
+      console.error('QR gen error:', e);
+    }
+    console.log('\n=== WHATSAPP QR CODE ===');
+    qrcode.generate(qr, { small: true });
+    console.log('Scan this QR code with your WhatsApp app\n');
+  });
+
+  client.on('ready', () => {
+    ready = true;
+    currentQR = null;
+    qrDataUrl = null;
+    console.log('✅ WhatsApp connected and ready to send OTPs');
+  });
+
+  client.on('authenticated', () => {
+    console.log('WhatsApp authenticated');
+  });
+
+  client.on('auth_failure', (msg) => {
+    console.error('❌ WhatsApp auth failed:', msg);
+    ready = false;
+  });
+
+  client.on('disconnected', (reason) => {
+    ready = false;
+    currentQR = null;
+    qrDataUrl = null;
+    console.log('⚠️ WhatsApp disconnected:', reason);
+    client = null;
+  });
+
+  client.initialize();
+  return client;
+}
+
+export function getWhatsAppStatus() {
+  return {
+    ready,
+    hasQR: !!qrDataUrl,
+    qr: qrDataUrl
+  };
+}
+
+export async function logoutWhatsApp() {
+  if (client) {
+    try {
+      await client.logout();
+    } catch (e) {}
+    try {
+      await client.destroy();
+    } catch (e) {}
+  }
+  client = null;
+  ready = false;
+  currentQR = null;
+  qrDataUrl = null;
+}
+
+export async function sendWhatsAppOTP(mobile, otp) {
+  if (!client || !ready) {
+    throw new Error('WhatsApp not ready. Scan QR code first.');
+  }
+  
+  // Add country code if not present (assuming India +91)
+  let number = mobile.replace(/\D/g, '');
+  if (number.length === 10) number = '91' + number;
+  if (!number.endsWith('@c.us')) number = number + '@c.us';
+  
+  const message = `Your SkarPay verification code is: *${otp}*\n\nThis code expires in 5 minutes. Do not share it with anyone.`;
+  
+  await client.sendMessage(number, message);
+  return { success: true };
+}
+
+export function isWhatsAppReady() {
+  return ready;
 }
 
 export async function sendOtp(mobile, otp) {
-  if (!sock || !isConnected) {
-    console.log(`[whatsapp] not connected; OTP for ${mobile}: ${otp} (fallback)`);
-    return { sent: false, fallback: true, otp };
-  }
   try {
-    const jid = mobile.replace(/\D/g, '') + '@s.whatsapp.net';
-    await sock.sendMessage(jid, { text: `Your SkarPay verification code is: ${otp}. Valid for 5 minutes.` });
-    return { sent: true };
+    if (ready) {
+      await sendWhatsAppOTP(mobile, otp);
+      return { sent: true, method: 'whatsapp' };
+    }
+    console.log(`[OTP] ${mobile}: ${otp} (purpose: customer)`);
+    return { sent: false, method: 'console', otp };
   } catch (e) {
-    console.error('[whatsapp] send failed:', e.message);
-    return { sent: false, error: e.message };
+    console.log(`[OTP] ${mobile}: ${otp} (purpose: customer)`);
+    return { sent: false, method: 'console', otp, error: e.message };
   }
-}
-
-export function isWhatsAppConnected() {
-  return isConnected;
 }

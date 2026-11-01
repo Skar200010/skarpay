@@ -17,20 +17,63 @@ export function isValidAdminKey(provided) {
 }
 
 export function adminAuth(req, res, next) {
-  if (!process.env.ADMIN_API_KEY) {
+  const expected = process.env.ADMIN_API_KEY;
+  if (!expected) {
     return res.status(503).json({ error: 'ADMIN_API_KEY is not configured on the server' });
   }
   const provided = req.headers['x-admin-key'];
   if (!provided) return res.status(401).json({ error: 'Missing X-Admin-Key' });
-  if (!isValidAdminKey(provided)) return res.status(401).json({ error: 'Invalid admin key' });
+  if (!timingSafeEqualString(provided, expected)) return res.status(401).json({ error: 'Invalid admin key' });
   next();
 }
 
-// Merchant API key guard: reads X-API-Key, hashes, looks up merchant.
+// Merchant auth guard: supports X-API-Key or merchant session token
 export async function merchantAuth(req, res, next) {
-  const apiKey = req.headers['x-api-key'];
-  if (!apiKey) return res.status(401).json({ error: 'Missing X-API-Key' });
   const supabase = requireAdmin();
+  
+  // Try session token first
+  const authHeader = req.headers['authorization'];
+  const tokenHeader = req.headers['x-merchant-token'] || req.headers['x-token'];
+  const token = tokenHeader || (authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null);
+  
+  if (token) {
+    try {
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const { data: session, error: sessErr } = await supabase
+        .from('merchant_sessions')
+        .select('merchant_id, expires_at')
+        .eq('token_hash', tokenHash)
+        .single();
+      
+      if (sessErr || !session) {
+        return res.status(401).json({ error: 'Invalid session token' });
+      }
+      if (new Date(session.expires_at) < new Date()) {
+        return res.status(401).json({ error: 'Session expired' });
+      }
+      
+      const { data: merchant, error: merchErr } = await supabase
+        .from('merchants')
+        .select('*')
+        .eq('id', session.merchant_id)
+        .eq('is_active', true)
+        .single();
+      
+      if (merchErr || !merchant) {
+        return res.status(401).json({ error: 'Merchant not found or inactive' });
+      }
+      
+      req.merchant = merchant;
+      req.merchantSession = session;
+      return next();
+    } catch (e) {
+      console.error('[merchantAuth] token error:', e.message);
+    }
+  }
+  
+  // Fallback to API key
+  const apiKey = req.headers['x-api-key'];
+  if (!apiKey) return res.status(401).json({ error: 'Missing authentication' });
   const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
   const { data: merchant, error } = await supabase
     .from('merchants')

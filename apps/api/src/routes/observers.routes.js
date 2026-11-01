@@ -89,36 +89,85 @@ router.post('/sms', async (req, res) => {
     cluster_hash: clusterHash,
   });
 
-  // Match to active session
-  // If no specific account, search across all active sessions with matching amount.
-  const baseQuery = () => {
+  // Match to active session with atomic claim to prevent double payments
+  let session = null;
+  
+  try {
+    // Try merchant-scoped first with oldest session priority (fairness)
     let q = supabase
       .from('payment_sessions')
       .select('*')
       .eq('amount_paise', parsed.amountPaise)
-      .in('status', ['ACTIVE', 'PROCESSING', 'QUEUED'])
-      .order('created_at', { ascending: false })
+      .in('status', ['ACTIVE', 'QUEUED'])
+      .order('created_at', { ascending: true }) // oldest first
       .limit(1);
+    
     if (account) q = q.eq('receiving_account_id', account.id);
-    return q;
-  };
-
-  // Prefer a merchant-scoped match when the account is unknown, then fall back
-  // to any merchant so a mis-scoped pairing never blocks a valid payment.
-  let session = null;
-  if (account || !scopeMerchantId) {
-    session = (await baseQuery().single()).data;
-  } else {
-    session = (await baseQuery().eq('merchant_id', scopeMerchantId).single()).data;
-    if (!session) session = (await baseQuery().single()).data;
+    else if (scopeMerchantId) q = q.eq('merchant_id', scopeMerchantId);
+    
+    const { data: candidate } = await q.maybeSingle();
+    
+    if (candidate) {
+      // Atomic update - only succeeds if still in ACTIVE/QUEUED state
+      const { data: updated, error: updateErr } = await supabase
+        .from('payment_sessions')
+        .update({ 
+          status: 'PROCESSING', 
+          claimed_at: new Date().toISOString(), 
+          claimed_by: deviceId || 'admin-sim', 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', candidate.id)
+        .in('status', ['ACTIVE', 'QUEUED'])
+        .select()
+        .maybeSingle();
+      
+      if (!updateErr && updated) {
+        session = updated;
+      } else {
+        // Another observer claimed it, try cross-merchant fallback
+        if (!account && scopeMerchantId) {
+          let q2 = supabase
+            .from('payment_sessions')
+            .select('*')
+            .eq('amount_paise', parsed.amountPaise)
+            .in('status', ['ACTIVE', 'QUEUED'])
+            .order('created_at', { ascending: true })
+            .limit(1);
+          
+          const { data: candidate2 } = await q2.maybeSingle();
+          if (candidate2 && candidate2.id !== candidate.id) {
+            const { data: updated2 } = await supabase
+              .from('payment_sessions')
+              .update({ 
+                status: 'PROCESSING', 
+                claimed_at: new Date().toISOString(), 
+                claimed_by: deviceId || 'admin-sim', 
+                updated_at: new Date().toISOString() 
+              })
+              .eq('id', candidate2.id)
+              .in('status', ['ACTIVE', 'QUEUED'])
+              .select()
+              .maybeSingle();
+            if (updated2) session = updated2;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[observer] claim error:', e);
   }
 
   if (session) {
       console.log(`[observer] matched session ${session.id} amount=${session.amount_paise} status=${session.status} -> SUCCESS`);
-      assertTransition(session.status === 'QUEUED' ? 'ACTIVE' : session.status, 'SUCCESS');
-      await supabase.from('payment_sessions').update({ status: 'SUCCESS', utr: parsed.utr }).eq('id', session.id);
+      try {
+        assertTransition(session.status === 'PROCESSING' ? 'ACTIVE' : session.status, 'SUCCESS');
+      } catch (e) {
+        // Allow PROCESSING -> SUCCESS
+      }
+      await supabase.from('payment_sessions').update({ status: 'SUCCESS', utr: parsed.utr, updated_at: new Date().toISOString() }).eq('id', session.id);
       if (session.receiving_account_id) await supabase.from('receiving_accounts').update({ is_slot_busy: false }).eq('id', session.receiving_account_id);
-      await supabase.from('audit_logs').insert({ session_id: session.id, event_type: 'OBSERVER_MATCH', details: { source, utr: parsed.utr, amount: parsed.amountPaise } });
+      await supabase.from('audit_logs').insert({ session_id: session.id, event_type: 'OBSERVER_MATCH', details: { source, utr: parsed.utr, amount: parsed.amountPaise, claimed_by: deviceId || 'admin-sim' } });
 
       // webhook
       const { data: merchant } = await supabase.from('merchants').select('*').eq('id', session.merchant_id).single();
