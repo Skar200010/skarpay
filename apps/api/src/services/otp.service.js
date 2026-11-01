@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { sendWhatsAppOTP, isWhatsAppReady } from './whatsapp.service.js';
+import { sendWhatsAppOTP, isWhatsAppReady } from './whatsapp-baileys.service.js';
 
 const otps = new Map(); // In-memory for now, use Redis in production
 

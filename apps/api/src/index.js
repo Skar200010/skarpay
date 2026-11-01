@@ -15,7 +15,7 @@ import pollersRoutes from './routes/pollers.routes.js';
 import merchantAuthRoutes from './routes/merchant-auth.routes.js';
 import merchantPanelRoutes from './routes/merchant-panel.routes.js';
 import whatsappRoutes from './routes/whatsapp.routes.js';
-import { initWhatsApp } from './services/whatsapp.service.js';
+import { initWhatsApp } from './services/whatsapp-baileys.service.js';
 import { startSweeper } from './services/sweeper.js';
 import { startWebhookRetry } from './services/webhook-retry.js';
 
