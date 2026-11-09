@@ -1,19 +1,145 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; background: #0f0f23; color: #e4e4e7; }
-.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-.card { background: #1e1e3f; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid #2a2a5a; }
-.btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; }
-.btn:hover { opacity: 0.9; }
-.input { width: 100%; padding: 12px; background: #0f0f23; border: 1px solid #2a2a5a; border-radius: 8px; color: white; margin-bottom: 16px; }
-.nav { background: #1e1e3f; padding: 16px 32px; display: flex; gap: 24px; align-items: center; border-bottom: 1px solid #2a2a5a; }
-.nav a { color: #a1a1aa; text-decoration: none; }
-.nav a.active, .nav a:hover { color: #6366f1; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-.stat { text-align: center; }
-.stat-value { font-size: 32px; font-weight: bold; color: #6366f1; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2a2a5a; }
-th { color: #a1a1aa; font-weight: 500; }
-.status-success { color: #10b981; }
-.status-pending { color: #f59e0b; }
-.status-failed { color: #ef4444; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #0b0f19;
+    background-image:
+      radial-gradient(circle at 85% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 15% 90%, rgba(139, 92, 246, 0.08) 0%, transparent 45%);
+    background-attachment: fixed;
+  }
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Cyber & Glassmorphism Atmosphere */
+.glass-card {
+  background: rgba(17, 24, 39, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(99, 102, 241, 0.32);
+  box-shadow: 0 16px 36px -10px rgba(99, 102, 241, 0.15);
+}
+
+.glass-nav {
+  background: rgba(15, 19, 29, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-gradient-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  box-shadow: 0 0 20px -2px rgba(99, 102, 241, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.btn-gradient-primary:hover {
+  box-shadow: 0 0 28px 2px rgba(99, 102, 241, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.pulse-dot {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.15);
+  }
+}
+
+/* Legacy utility classes still used by the not-yet-redesigned pages */
+.card {
+  background: #1e1e3f;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid #2a2a5a;
+}
+
+.btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  background: #0f0f23;
+  border: 1px solid #2a2a5a;
+  border-radius: 8px;
+  color: white;
+  margin-bottom: 16px;
+}
+
+.nav {
+  background: #1e1e3f;
+  padding: 16px 32px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  border-bottom: 1px solid #2a2a5a;
+}
+
+.nav a {
+  color: #a1a1aa;
+  text-decoration: none;
+}
+
+.nav a.active,
+.nav a:hover {
+  color: #6366f1;
+}
+
+.card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.card th,
+.card td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a2a5a;
+}
+
+.card th {
+  color: #a1a1aa;
+  font-weight: 500;
+}
