@@ -1,9 +1,10 @@
 import {
-  default as makeWASocket,
+  makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys';
+import qrcodeTerminal from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
@@ -37,7 +38,6 @@ export async function initWhatsApp() {
     sock = makeWASocket({
       version,
       auth: state,
-      printQRInTerminal: true,
       browser: ['SkarPay', 'Chrome', '1.0.0']
     });
 
@@ -56,6 +56,7 @@ export async function initWhatsApp() {
         }
         console.log('\n=== WHATSAPP QR CODE (BAILEYS) ===');
         console.log('Scan this QR code with your WhatsApp app\n');
+        qrcodeTerminal.generate(qr, { small: true });
       }
 
       if (connection === 'close') {
@@ -78,7 +79,7 @@ export async function initWhatsApp() {
 
     return sock;
   } catch (e) {
-    console.log('[whatsapp-baileys] init failed, skipping:', e.message);
+    console.log('[whatsapp-baileys] init failed, skipping:', e.stack || e.message);
     sock = null;
     ready = false;
     return null;

@@ -9,6 +9,7 @@ data/
 # WhatsApp Web session state (contains credentials)
 .wwebjs_auth/
 .wwebjs_cache/
+.baileys_auth/
 
 # Local scratch scripts / captured API output
 merchants.json
