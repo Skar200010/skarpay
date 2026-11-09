@@ -5,31 +5,38 @@ const API = import.meta.env.VITE_API_URL ?? ''
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
+  const [error, setError] = useState('')
   const navigate = useNavigate()
   const merchant = JSON.parse(localStorage.getItem('merchant') || '{}')
   const token = localStorage.getItem('merchant_token')
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
+  const logout = () => {
+    localStorage.removeItem('merchant_token')
+    localStorage.removeItem('merchant')
+    navigate('/login', { replace: true })
+  }
 
   const fetchStats = async () => {
     try {
       const res = await fetch(`${API}/api/v1/merchant-panel/dashboard`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
+      if (res.status === 401) {
+        logout()
+        return
+      }
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not load dashboard')
       setStats(data.stats)
     } catch (err) {
       console.error(err)
+      setError(err.message)
     }
   }
 
-  const logout = () => {
-    localStorage.removeItem('merchant_token')
-    localStorage.removeItem('merchant')
-    navigate('/login')
-  }
+  useEffect(() => {
+    fetchStats()
+  }, [])
 
   return (
     <div>
@@ -44,6 +51,7 @@ export default function Dashboard() {
       <div className="container">
         <h1 style={{ marginBottom: '8px' }}>Welcome, {merchant.business_name}</h1>
         <p style={{ color: '#a1a1aa', marginBottom: '32px' }}>Overview of your payments</p>
+        {error && <div className="card" style={{ color: '#ef4444' }}>{error}</div>}
         <div className="grid">
           <div className="card stat">
             <div className="stat-value">₹{((stats?.total_amount || 0) / 100).toFixed(2)}</div>
