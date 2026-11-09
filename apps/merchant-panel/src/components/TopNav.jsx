@@ -29,7 +29,7 @@ export default function TopNav({ active }) {
 
   return (
     <header className="sticky top-0 z-50 glass-nav shadow-sm backdrop-blur-lg">
-      <div className="w-full h-16 max-w-7xl mx-auto px-margin flex items-center justify-between">
+      <div className="w-full h-16 px-margin flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link
             className="text-headline-md font-headline-md font-bold text-on-surface flex items-center gap-space-xs tracking-tight"

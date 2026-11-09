@@ -102,7 +102,7 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col">
       <TopNav active="Dashboard" />
 
-      <main className="flex-1 w-full max-w-7xl mx-auto px-margin py-8 space-y-8">
+      <main className="flex-1 w-full px-margin py-8 space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2">
           <div>
             <div className="flex items-center gap-3">
@@ -544,7 +544,7 @@ export default function Dashboard() {
       </main>
 
       <footer className="mt-12 border-t border-outline-variant/20 bg-surface-container-lowest/70 backdrop-blur-md py-6">
-        <div className="w-full max-w-7xl mx-auto px-margin flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="w-full px-margin flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-headline-md font-headline-md font-bold text-on-surface tracking-tight">SkarPay</span>
             <span className="text-outline">|</span>
