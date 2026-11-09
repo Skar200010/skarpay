@@ -92,7 +92,7 @@ router.post('/login', async (req, res) => {
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   });
   
-  res.json({ token, merchant: { id: merchant.id, business_name: merchant.business_name, mobile: merchant.mobile, email: merchant.email } });
+  res.json({ token, merchant: { id: merchant.id, business_name: merchant.business_name, mobile: merchant.mobile, email: merchant.email, status: merchant.status } });
 });
 
 // Get merchant profile

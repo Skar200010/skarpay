@@ -51,23 +51,28 @@ export default function Dashboard() {
 
     const load = async () => {
       try {
-        const [dashboard, paymentsRes, devicesRes] = await Promise.all([
+        const [dashboard, paymentsRes, devicesRes] = await Promise.allSettled([
           apiFetch('/api/v1/merchant-panel/dashboard'),
           apiFetch('/api/v1/merchant-panel/payments?limit=5'),
           apiFetch('/api/v1/merchant-panel/devices'),
         ]);
         if (cancelled) return;
-        setStats(dashboard.stats || {});
-        setPayments(paymentsRes.payments || []);
-        setDevices(devicesRes.devices || []);
-      } catch (err) {
-        if (cancelled) return;
-        if (err.status === 401) {
-          clearSession();
-          navigate('/login', { replace: true });
-          return;
+
+        if (dashboard.status === 'rejected') {
+          if (dashboard.reason?.status === 401) {
+            clearSession();
+            navigate('/login', { replace: true });
+            return;
+          }
+          setError(dashboard.reason?.message || 'Could not load your dashboard');
+        } else {
+          setStats(dashboard.value.stats || {});
         }
-        setError(err.message || 'Could not load your dashboard');
+
+        if (paymentsRes.status === 'fulfilled') setPayments(paymentsRes.value.payments || []);
+        if (devicesRes.status === 'fulfilled') setDevices(devicesRes.value.devices || []);
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Could not load your dashboard');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -437,30 +442,33 @@ export default function Dashboard() {
                   </p>
                 )}
 
-                {devices.slice(0, 4).map((device) => (
-                  <div
-                    className="p-3 rounded-lg bg-surface-container-low/60 border border-outline-variant/20 flex items-center justify-between hover:border-primary/40 transition-colors"
-                    key={device.id}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center">
-                        <span className="material-symbols-outlined">{deviceIcon(device)}</span>
+                {devices.slice(0, 4).map((device) => {
+                  const active = device.is_active && device.last_heartbeat_at;
+                  return (
+                    <div
+                      className="p-3 rounded-lg bg-surface-container-low/60 border border-outline-variant/20 flex items-center justify-between hover:border-primary/40 transition-colors"
+                      key={device.id}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary-container/20 text-primary flex items-center justify-center">
+                          <span className="material-symbols-outlined">{deviceIcon(device)}</span>
+                        </div>
+                        <div>
+                          <h4 className="text-label-md font-label-md font-semibold text-on-surface">
+                            {device.device_name || 'Unnamed device'}
+                          </h4>
+                          <p className="text-code-sm font-code-sm text-outline">
+                            {device.device_model || 'Unknown model'} • {timeAgo(device.last_heartbeat_at || device.created_at)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-label-md font-label-md font-semibold text-on-surface">
-                          {device.device_name || 'Unnamed device'}
-                        </h4>
-                        <p className="text-code-sm font-code-sm text-outline">
-                          {[device.device_model, device.platform].filter(Boolean).join(' • ') || '—'}
-                        </p>
+                      <div className={`flex items-center gap-1 ${active ? 'text-tertiary' : 'text-outline'}`}>
+                        <span className={`w-2 h-2 rounded-full ${active ? 'bg-tertiary' : 'bg-outline'}`} />
+                        <span className="text-code-sm font-code-sm">{active ? 'Active' : 'Idle'}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-tertiary">
-                      <span className="w-2 h-2 rounded-full bg-tertiary" />
-                      <span className="text-code-sm font-code-sm">Active</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <Link

@@ -6,7 +6,8 @@ function run(name, cmd, args, env = {}) {
   return p;
 }
 
-console.log('Starting SkarPay dev (API + admin + checkout)...');
+console.log('Starting SkarPay dev (API + admin + checkout + merchant panel)...');
 run('api', 'node', ['apps/api/src/index.js']);
 run('admin', 'npm', ['run', 'dev', '--workspace', '@skarpay/admin']);
 run('checkout', 'npm', ['run', 'dev', '--workspace', '@skarpay/checkout']);
+run('merchant-panel', 'npm', ['run', 'dev', '--workspace', '@skarpay/merchant-panel']);

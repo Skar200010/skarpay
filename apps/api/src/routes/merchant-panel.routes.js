@@ -60,7 +60,7 @@ router.get('/devices', merchantAuth, async (req, res) => {
   
   const { data, error } = await supabase
     .from('devices')
-    .select('id,device_name,device_model,platform,last_seen_at,created_at')
+    .select('id,device_name,device_model,is_active,last_heartbeat_at,created_at')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
   
