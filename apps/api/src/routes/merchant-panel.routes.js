@@ -1,6 +1,7 @@
 import express from 'express';
 import { requireAdmin } from '../../../../packages/db/src/supabase.js';
 import { merchantAuth } from '../middleware/auth.js';
+import { createEnrollmentToken, ENROLLMENT_TOKEN_TTL_MS } from '../services/enrollment.js';
 
 const router = express.Router();
 
@@ -115,6 +116,17 @@ router.get('/branding', merchantAuth, async (req, res) => {
     .single();
   
   res.json({ branding: data?.branding || {} });
+});
+
+// Issue a short-lived pairing token scoped to this merchant. The Android
+// observer app exchanges it for device credentials at /pollers/android/pair.
+router.get('/enrollment-token', merchantAuth, async (req, res) => {
+  try {
+    const token = createEnrollmentToken(req.merchant.id);
+    res.json({ token, expiresAt: Date.now() + ENROLLMENT_TOKEN_TTL_MS });
+  } catch (e) {
+    res.status(503).json({ error: e.message });
+  }
 });
 
 export default router;
