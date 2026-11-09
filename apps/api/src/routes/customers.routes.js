@@ -1,7 +1,7 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import { requireAdmin } from '../../../../packages/db/src/supabase.js';
-import { sendOtp } from '../services/whatsapp.service.js';
+import { sendOtp } from '../services/whatsapp-baileys.service.js';
 
 const router = express.Router();
 
