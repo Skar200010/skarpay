@@ -54,6 +54,18 @@ const STATUS_META = {
     chip: 'bg-secondary-container/30 border-secondary/40',
     dot: 'bg-secondary pulse-dot',
   },
+  INITIATED: {
+    label: 'Initiated',
+    text: 'text-secondary',
+    chip: 'bg-secondary-container/30 border-secondary/40',
+    dot: 'bg-secondary pulse-dot',
+  },
+  CANCELLED: {
+    label: 'Cancelled',
+    text: 'text-outline',
+    chip: 'bg-surface-container-high border-outline-variant/60',
+    dot: 'bg-outline',
+  },
   FAILED: {
     label: 'Failed',
     text: 'text-error',
