@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:4100'
+const API = import.meta.env.VITE_API_URL ?? ''
 
 export default function Customizer() {
   const [branding, setBranding] = useState({
